@@ -88,28 +88,76 @@
       .bg-blobs, .bg-blobs::before, .bg-blobs::after{ animation:none !important; }
     }
 
-    .app{
-      position: relative; z-index: 2;
-      min-height: 100vh;
-      display:flex;
-      align-items:center;
-      justify-content:center;
-      padding: 26px 18px;
-    }
+.app{
+  position: relative; z-index: 2;
+  min-height: 100vh;
+  display:flex;
+
+  /* ✅ clave: en vez de centrar verticalmente, ancla arriba */
+  align-items: flex-start;
+
+  justify-content:center;
+
+  /* un pelín más “seguro” arriba en móvil */
+  padding: max(16px, env(safe-area-inset-top)) 18px 26px;
+}
+@media (max-width: 900px){
+  .app{
+    padding: max(12px, env(safe-area-inset-top)) 12px 18px;
+    align-items: stretch; /* hace que el panel use todo el ancho */
+  }
+}
 
     .panel{
       position: relative;
       overflow: hidden;
       width: min(var(--cardW), 100%);
-      border-radius: 20px;
+      border-radius: 18px;
       background: linear-gradient(180deg, var(--panelA), var(--panelB));
       border:1px solid rgba(255,255,255,0.10);
       box-shadow:
         0 18px 50px rgba(0,0,0,0.45),
         inset 0 1px 0 rgba(255,255,255,0.06);
-      backdrop-filter: blur(12px) saturate(115%);
-      -webkit-backdrop-filter: blur(12px) saturate(115%);
+     backdrop-filter: blur(14px) saturate(125%);
+  -webkit-backdrop-filter: blur(14px) saturate(125%);
     }
+    /* =========================
+   SCROLLBAR GLASS (premium)
+   ========================= */
+.panel, .modelDesc, .fsBody{
+  scrollbar-width: thin;
+  scrollbar-color: rgba(231,237,245,0.28) rgba(255,255,255,0.06);
+}
+
+.panel::-webkit-scrollbar,
+.modelDesc::-webkit-scrollbar,
+.fsBody::-webkit-scrollbar{
+  width: 10px;
+}
+
+.panel::-webkit-scrollbar-track,
+.modelDesc::-webkit-scrollbar-track,
+.fsBody::-webkit-scrollbar-track{
+  background: rgba(255,255,255,0.05);
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+
+.panel::-webkit-scrollbar-thumb,
+.modelDesc::-webkit-scrollbar-thumb,
+.fsBody::-webkit-scrollbar-thumb{
+  background: linear-gradient(180deg, rgba(231,237,245,0.28), rgba(231,237,245,0.14));
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
+}
+
+.panel::-webkit-scrollbar-thumb:hover,
+.modelDesc::-webkit-scrollbar-thumb:hover,
+.fsBody::-webkit-scrollbar-thumb:hover{
+  background: linear-gradient(180deg, rgba(231,237,245,0.36), rgba(231,237,245,0.18));
+}
+
     .panel::before{
       content:"";
       position:absolute;
@@ -507,12 +555,106 @@ select.select{
 }
 
 
-   .card{
+.card{
   border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.05);
+  background:
+    radial-gradient(700px 220px at 15% 0%, rgba(255,255,255,0.06), transparent 55%),
+    rgba(255,255,255,0.04);
   border-radius: 18px;
-  padding: 14px 14px;
-  overflow:hidden;
+  padding: 16px 16px;
+  overflow: hidden;
+  box-shadow: 0 18px 60px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+/* =========================
+   REVEAL CARD (modelo-style)
+   ========================= */
+
+/* Acento de escuela: esquina superior derecha */
+.card.rightCard{
+  position: relative;
+}
+/* =========================
+   IFRAME: tarjeta de MODELOS embebida
+   ========================= */
+.modelFrame{
+  width: 100%;
+  height: 100%;
+  min-height: 520px;
+  border: 0;
+  display: block;
+  background: transparent;
+}
+
+/* En móvil no se ve rightCard igual, pero por si acaso */
+@media (max-width: 900px){
+  .modelFrame{ min-height: 60vh; }
+}
+
+/* Iframe dentro del fullscreen */
+.fsBody{
+  padding: 0 !important; /* para que el iframe encaje perfecto */
+}
+.fsIframe{
+  width: 100%;
+  height: 100%;
+  min-height: 65vh;
+  border: 0;
+  display: block;
+  background: transparent;
+}
+
+.card.rightCard::after{
+  content:"";
+  position:absolute;
+  top:-48px;
+  right:-48px;
+  width: 180px;
+  height: 180px;
+  border-radius: 999px;
+  pointer-events:none;
+
+  background: radial-gradient(
+    circle at 35% 35%,
+    color-mix(in srgb, var(--schoolColor) 55%, transparent),
+    transparent 62%
+  );
+
+  filter: blur(1px);
+  opacity: .95;
+  mix-blend-mode: screen;
+}
+
+/* Badge de escuela (como en Modelos) */
+.schoolTag{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+
+  padding: 6px 10px;
+  border-radius: 999px;
+
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+
+  color: color-mix(in srgb, var(--schoolColor) 85%, white 15%);
+  border: 1px solid color-mix(in srgb, var(--schoolColor) 40%, rgba(255,255,255,0.12));
+  background: color-mix(in srgb, var(--schoolColor) 12%, rgba(0,0,0,0.18));
+
+  box-shadow:
+    0 10px 26px rgba(0,0,0,.18),
+    0 0 0 6px color-mix(in srgb, var(--schoolColor) 10%, transparent),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+
+  white-space: nowrap;
+}
+
+.schoolTagDot{
+  width:8px; height:8px; border-radius:999px;
+  background: color-mix(in srgb, var(--schoolColor) 75%, transparent);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--schoolColor) 16%, transparent);
 }
 
 /* ✅ SOLO la tarjeta derecha: que distribuya verticalmente y deje crecer la descripción */
@@ -554,24 +696,38 @@ select.select{
       margin-top: 12px;
     }
 
-    .opt{
-      text-align:left;
-      padding: 12px 12px;
-      border-radius: 16px;
-      border: 1px solid rgba(255,255,255,0.10);
-      background:
-        linear-gradient(
-          180deg,
-          color-mix(in srgb, var(--schoolColor) 8%, transparent),
-          rgba(255,255,255,0.04)
-        );
-      color:#fff;
-      font-weight: 900;
-      cursor:pointer;
-      transition: transform .12s ease, border-color .12s ease, background .12s ease, box-shadow .12s ease;
-      user-select:none;
-      position:relative;
-    }
+  .opt{
+  text-align:left;
+  padding: 12px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.10);
+
+  background:
+    radial-gradient(700px 220px at 12% 0%, rgba(255,255,255,0.06), transparent 55%),
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--schoolColor) 9%, rgba(0,0,0,0.12)),
+      rgba(255,255,255,0.04)
+    );
+
+  color:#fff;
+  font-weight: 900;
+  cursor:pointer;
+  user-select:none;
+  position:relative;
+
+  box-shadow:
+    0 14px 40px rgba(0,0,0,.22),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+
+  transition:
+    transform .12s ease,
+    border-color .12s ease,
+    background .12s ease,
+    box-shadow .12s ease,
+    filter .12s ease;
+}
+
     .opt:hover{
       transform: translateY(-1px);
       border-color: rgba(255,255,255,0.16);
@@ -779,7 +935,105 @@ select.select{
       font-size: 12px;
       line-height: 1.45;
     }
-    
+    /* =========================
+   TARJETA MODELO (look "Modelos")
+   ========================= */
+.modelCard{
+  position: relative;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background:
+    radial-gradient(900px 420px at 15% 10%, rgba(255,255,255,0.10), transparent 60%),
+    radial-gradient(700px 340px at 70% 30%, color-mix(in srgb, var(--schoolColor) 14%, transparent), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.10));
+  box-shadow:
+    0 18px 60px rgba(0,0,0,.28),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+  overflow: hidden;
+}
+
+/* ✅ toque de color esquina superior derecha (como en Modelos) */
+.modelCard::after{
+  content:"";
+  position:absolute;
+  right:-120px;
+  top:-120px;
+  width: 320px;
+  height: 320px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 35%,
+    color-mix(in srgb, var(--schoolColor) 55%, transparent),
+    transparent 68%
+  );
+  opacity: .55;
+  pointer-events:none;
+  mix-blend-mode: screen;
+}
+
+/* capa de brillo fino */
+.modelCard::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+  background:
+    radial-gradient(520px 260px at 88% 12%, rgba(255,255,255,0.07), transparent 62%),
+    radial-gradient(620px 320px at 18% 85%, rgba(255,255,255,0.05), transparent 65%);
+  opacity:.9;
+}
+
+/* contenido encima de las capas */
+.modelCard > *{ position: relative; z-index: 1; }
+
+.modelCardTop{
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.schoolPill{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--schoolColor) 42%, rgba(255,255,255,0.10));
+  background: color-mix(in srgb, var(--schoolColor) 14%, rgba(0,0,0,0.22));
+  color: color-mix(in srgb, var(--schoolColor) 86%, #ffffff 14%);
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+  box-shadow:
+    0 12px 34px rgba(0,0,0,.28),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+.schoolPillDot{
+  width:8px; height:8px; border-radius:999px;
+  background: color-mix(in srgb, var(--schoolColor) 75%, transparent);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--schoolColor) 16%, transparent);
+}
+
+.modelTitle{
+  margin: 0 0 6px 0;
+  font-size: 18px;
+  font-weight: 950;
+  letter-spacing: -0.4px;
+  line-height: 1.1;
+  color: #fff;
+}
+
+.modelMetaLine{
+  margin: 0;
+  font-size: 12.5px;
+  font-weight: 750;
+  color: rgba(231,237,245,0.78);
+}
+
     /* =========================
    FULLSCREEN móvil (panel derecho)
    ========================= */
@@ -829,6 +1083,36 @@ select.select{
   padding: 14px 14px;
   overflow: auto;
   min-height: 0;
+}
+/* Card interior dentro del overlay móvil (mismo look que rightCard) */
+.fsCard{
+  position: relative;
+  border: 1px solid rgba(255,255,255,0.10);
+  border-radius: 18px;
+  background:
+    radial-gradient(700px 220px at 15% 0%, rgba(255,255,255,0.06), transparent 55%),
+    rgba(255,255,255,0.04);
+  box-shadow: 0 18px 60px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,0.06);
+  overflow: hidden;
+  padding: 14px 14px;
+}
+
+.fsCard::after{
+  content:"";
+  position:absolute;
+  top:-48px;
+  right:-48px;
+  width: 180px;
+  height: 180px;
+  border-radius: 999px;
+  pointer-events:none;
+  background: radial-gradient(
+    circle at 35% 35%,
+    color-mix(in srgb, var(--schoolColor) 55%, transparent),
+    transparent 62%
+  );
+  opacity: .95;
+  mix-blend-mode: screen;
 }
 
 .fsBottom{
@@ -1015,7 +1299,7 @@ select.select{
 }
 
 
-}
+
 
 /* ✅ ultra-ultra: aún más apretado */
 @media (max-width: 320px){
@@ -1029,13 +1313,23 @@ select.select{
   }
   .controlsRow, .actions{ gap: 6px; }
 }
+/* =========================
+   MICRO-RITUAL DE ENTRADA (pro)
+   ========================= */
+body:not(.loaded) .panel{
+  opacity: 0;
+  transform: translateY(8px);
+}
+body.loaded .panel{
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity .38s ease, transform .38s ease;
+}
 
 
 </style>
-
-
-  </style>
 </head>
+
 
 <body>
   <div class="bg-blobs"></div>
@@ -1110,22 +1404,19 @@ select.select{
           </div>
 
           <!-- DERECHA: “revelado” / foto / referencia -->
-          <div class="card rightCard">
-
-           <div class="rightTop">
-  <div class="author">
-    <img class="photo" id="photo" alt="" />
-    <div class="authorText">
-      <div class="authorName" id="modelLabel">—</div>
-      <div class="authorMeta" id="modelAuthors">—</div>
-    </div>
-  </div>
+<div class="card rightCard" style="padding:0; overflow:hidden;">
+  <iframe
+    id="modelFrame"
+    class="modelFrame"
+    title="Detalle del modelo"
+    loading="eager"
+    referrerpolicy="no-referrer"
+  ></iframe>
 </div>
 
-<div class="modelDesc" id="modelDesc">—</div>
 
+</div>
 
-          </div>
         </div>
 
       </div>
@@ -1163,9 +1454,20 @@ function gh(path){
   return `${GH_BASE}/${String(path).replace(/^\/+/,'')}`;
 }
 
+// ✅ URLs de datos (SIEMPRE desde tmps-data vía jsDelivr)
 const ESCUELAS_INDEX  = gh('Core/escuelas/index.json');
 const FOTOS_JSON_URL  = gh('Core/fotos/foto.json');
 const PHOTOS_BASE_URL = gh('Core/fotos/');
+
+// ✅ URL BASE de la app de MODELOS (para iframe)
+const MODELOS_APP_BASE = "https://modelos.tumentorpsicologia.com/apps/modelos/index.html";
+
+function modelosEmbedUrl(modelId){
+  // cache-buster para forzar que el iframe abra el modelo correcto siempre
+  return `${MODELOS_APP_BASE}?embed=1&solo=1&open=${encodeURIComponent(modelId)}&t=${Date.now()}`;
+}
+
+
 
   /* =========================
      Estado
@@ -1182,7 +1484,12 @@ const elStreak = $("#streak");
   const elLabel  = $("#modelLabel");
   const elAuth   = $("#modelAuthors");
 const elPhoto  = $("#photo");
-const elDesc   = $("#modelDesc");
+const elFrame  = $("#modelFrame");
+
+    const elGroup  = $("#modelGroup");
+    const elModelSchool = $("#modelSchool");
+const elModelSchoolTxt = $("#modelSchoolTxt");
+
 const pillSchool = $("#pillSchool");
 const pillYear = $("#pillYear");
 const pillCode = $("#pillCode");
@@ -1323,11 +1630,22 @@ function setRandomDotColor(){
   }
 
 
-  async function fetchJson(url){
-    const r = await fetch(url, { cache: "no-store" });
-    if(!r.ok) throw new Error(`HTTP ${r.status} al cargar: ${url}`);
-    return await r.json();
+async function fetchJson(url){
+  // cache-buster suave para evitar respuestas raras cacheadas en algunos entornos
+  const u = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
+
+  const r = await fetch(u, { cache: "no-store" });
+  if(!r.ok) throw new Error(`HTTP ${r.status} al cargar: ${url}`);
+
+  const ct = (r.headers.get("content-type") || "").toLowerCase();
+  if(!ct.includes("application/json")){
+    const preview = (await r.text()).slice(0, 180);
+    throw new Error(`Respuesta no JSON (${ct || "sin content-type"}) en: ${url} · ${preview}`);
   }
+
+  return await r.json();
+}
+
 
 function extractIdeasFromModel(modelJson){
   const ideas = modelJson?.ideasPrincipales;
@@ -1397,42 +1715,20 @@ function extractMicrosFromModel(modelJson){
 
 
 
-  function setRevealedPanel(model, revealOn){
-    // Panel derecho: en esta primera versión siempre mostramos el modelo,
-    // pero si quieres "modo examen" lo ocultamos hasta responder.
-if(!model){
-  elLabel.textContent = "—";
-  elAuth.textContent = "—";
-  elDesc.textContent = "—";
-  elPhoto.removeAttribute("src");
-  elPhoto.alt = "";
-  return;
-}
+function setRevealedPanel(model, revealOn){
+  if(!elFrame) return;
 
-
-    const label = model.label || model.modelLabel || model.id || "—";
-    const autores = model.autores || "—";
-
-    elLabel.textContent = revealOn ? label : "¿…?";
-    elAuth.textContent  = revealOn ? autores : "Elige una opción";
-if(revealOn){
-  const d = DESC_BY_MODEL[model.id] || "";
-  elDesc.textContent = d ? d : "—";
-}else{
-  elDesc.textContent = "Responde para ver la descripción";
-}
-
-    const filename = PHOTO_BY_MODEL[model.id] || null;
-    if(revealOn && filename){
-      elPhoto.src = PHOTOS_BASE_URL + filename;
-      elPhoto.alt = label;
-      elPhoto.style.visibility = "visible";
-    }else{
-      elPhoto.removeAttribute("src");
-      elPhoto.alt = "";
-      elPhoto.style.visibility = "hidden";
-    }
+  if(!model || !revealOn){
+    // limpio
+    elFrame.removeAttribute("src");
+    elFrame.src = "about:blank";
+    return;
   }
+
+  if(isMobile()) return; // en móvil no usamos el iframe lateral
+elFrame.src = modelosEmbedUrl(model.id);
+
+}
 
   function setStatus(html, on=true){
     elStatus.innerHTML = html;
@@ -1482,20 +1778,20 @@ const resultHtml = isCorrect
 fsResult.className = "fsResult " + (isCorrect ? "ok" : "bad");
 fsResult.innerHTML = resultHtml;
 
-  const filename = PHOTO_BY_MODEL[model.id] || "";
-  const photoUrl = filename ? (PHOTOS_BASE_URL + filename) : "";
+  // (iframe) ya no necesitamos foto/autor/grupo aquí
 
-  fsBody.innerHTML = `
-    <div class="author" style="margin-bottom:12px;">
-      <img class="photo" alt="${label}" src="${photoUrl}" style="${photoUrl ? "" : "display:none;"}" />
-      <div class="authorText">
-        <div class="authorName">${label}</div>
-        <div class="authorMeta">${autores}</div>
-      </div>
-    </div>
 
-    <div class="modelDesc" style="margin-top:0;">${desc}</div>
-  `;
+fsBody.innerHTML = `
+  <iframe
+    class="fsIframe"
+    title="Detalle del modelo"
+    loading="eager"
+    referrerpolicy="no-referrer"
+    src="${modelosEmbedUrl(model.id)}"
+  ></iframe>
+`;
+
+
 
   fsOverlay.classList.add("is-on");
   fsOverlay.setAttribute("aria-hidden","false");
@@ -1516,7 +1812,11 @@ function closeFsPanel(){
   fsOverlay.setAttribute("aria-hidden","true");
   document.documentElement.style.overflow = "";
   document.body.style.overflow = "";
+
+  // ✅ limpia iframe móvil
+  if(fsBody) fsBody.innerHTML = "";
 }
+
 function updateHud(){
   elScore.textContent = score;
   elRounds.textContent = rounds;
@@ -1582,9 +1882,9 @@ function updateHud(){
     elAns.innerHTML = "";
     setStatus("Revisa que los JSON tengan <b>ideasPrincipales</b>, <b>procedimientos</b> o <b>micros</b>.", true);
     setRevealedPanel(null, false);
-    pillSchool.textContent = "—";
-    pillYear.textContent = "—";
-    pillCode.textContent = "—";
+if(pillYear) pillYear.textContent = "—";
+if(pillCode) pillCode.textContent = "—";
+
     return;
   }
 
@@ -1613,10 +1913,11 @@ function updateHud(){
   pillYear.textContent = correct.year ? String(correct.year) : "—";
 
   // pill de tipo
-  const kindLabel = (CURRENT.kind === "idea principal") ? "idea"
-                  : (CURRENT.kind === "procedimiento") ? "procedimiento"
-                  : "micro-intervención";
-  pillCode.textContent = kindLabel;
+const kindLabel = (CURRENT.kind === "idea") ? "idea"
+                : (CURRENT.kind === "procedimiento") ? "procedimiento"
+                : "micro-intervención";
+pillCode.textContent = kindLabel;
+
 
 elIdea.textContent = limpiarAutorFinal(CURRENT.text);
 
@@ -1960,7 +2261,11 @@ if(elSchoolFilter){
   });
 }
 
-init();
+init().finally(()=>{
+  // micro-ritual de entrada (pro)
+  requestAnimationFrame(()=> document.body.classList.add("loaded"));
+});
+
 
 
   </script>

@@ -584,6 +584,8 @@ select.select{
   border: 0;
   display: block;
   background: transparent;
+    touch-action: pan-y;
+  overscroll-behavior: contain;
 }
 
 /* En móvil no se ve rightCard igual, pero por si acaso */
@@ -1257,6 +1259,45 @@ select.select{
     flex: 0 0 100%;
     width: 100%;
   }
+/* ✅ El scroll lo hace el contenedor (no el iframe) */
+.rightCard{
+  padding: 0 !important;
+  overflow: auto !important;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+}
+
+/* El iframe solo “pinta” contenido; su altura la ajusta JS */
+.modelFrame{
+  display:block;
+  width:100%;
+  height: 100%;
+  min-height: 100%;
+  border:0;
+  background: transparent;
+}
+
+/* ✅ Scrollbar estilo “glassy” (Chromium/Edge) */
+.rightCard::-webkit-scrollbar{ width: 10px; }
+.rightCard::-webkit-scrollbar-track{
+  background: rgba(255,255,255,0.06);
+  border-left: 1px solid rgba(255,255,255,0.08);
+}
+.rightCard::-webkit-scrollbar-thumb{
+  background: rgba(255,255,255,0.18);
+  border: 2px solid rgba(0,0,0,0);
+  background-clip: padding-box;
+  border-radius: 999px;
+}
+.rightCard::-webkit-scrollbar-thumb:hover{
+  background: rgba(255,255,255,0.26);
+  border: 2px solid rgba(0,0,0,0);
+  background-clip: padding-box;
+}
+
+/* Firefox */
+.rightCard{ scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.22) rgba(255,255,255,0.06); }
 
   /* ✅ controles: UNA SOLA LÍNEA */
   .controlsRow{
@@ -1414,14 +1455,18 @@ body.loaded .panel{
           </div>
 
           <!-- DERECHA: “revelado” / foto / referencia -->
-<div class="card rightCard" style="padding:0; overflow:hidden;">
-  <iframe
-    id="modelFrame"
-    class="modelFrame"
-    title="Detalle del modelo"
-    loading="eager"
-    referrerpolicy="no-referrer"
-  ></iframe>
+<div class="card rightCard">
+
+<iframe
+  id="modelFrame"
+  class="modelFrame"
+  title="Detalle del modelo"
+  loading="eager"
+  referrerpolicy="no-referrer"
+  tabindex="0"
+></iframe>
+
+
 </div>
 
 
@@ -1496,6 +1541,11 @@ const elStreak = $("#streak");
   const elAuth   = $("#modelAuthors");
 const elPhoto  = $("#photo");
 const elFrame  = $("#modelFrame");
+// ✅ Para que la rueda funcione: asegura foco en el iframe al entrar / clicar
+if(elFrame){
+  elFrame.addEventListener("pointerenter", ()=> { try{ elFrame.focus(); }catch(e){} });
+  elFrame.addEventListener("pointerdown",  ()=> { try{ elFrame.focus(); }catch(e){} });
+}
 
     const elGroup  = $("#modelGroup");
     const elModelSchool = $("#modelSchool");
@@ -1798,9 +1848,18 @@ fsBody.innerHTML = `
     title="Detalle del modelo"
     loading="eager"
     referrerpolicy="no-referrer"
+    tabindex="0"
     src="${modelosEmbedUrl(model.id)}"
   ></iframe>
 `;
+
+const fsIfr = fsBody.querySelector("iframe.fsIframe");
+if(fsIfr){
+  // foco al abrir y al tocar (para que la rueda/trackpad y scroll móvil vayan finos)
+  setTimeout(()=>{ try{ fsIfr.focus(); }catch(e){} }, 0);
+  fsIfr.addEventListener("pointerdown", ()=>{ try{ fsIfr.focus(); }catch(e){} });
+}
+
 
 
 
@@ -2275,7 +2334,29 @@ if(elSchoolFilter){
 init().finally(()=>{
   // micro-ritual de entrada (pro)
   requestAnimationFrame(()=> document.body.classList.add("loaded"));
+
+// ✅ Recibir altura del embed (Modelos) y ajustar iframe
+const modelFrame = document.getElementById("modelFrame");
+
+if(modelFrame){
+
+  window.addEventListener("message", (ev)=>{
+    const d = ev.data || {};
+    if(d && d.type === "tmps:embedHeight" && Number.isFinite(d.h)){
+      // +2px para evitar cortes por redondeo
+      modelFrame.style.height = (Math.max(200, d.h) + 2) + "px";
+    }
+  });
+
+  // fallback: si no llega nada, al menos que sea usable
+  modelFrame.addEventListener("load", ()=>{
+    // altura mínima razonable
+    modelFrame.style.height = "1200px";
+  });
+}
+
 });
+
 
 
 

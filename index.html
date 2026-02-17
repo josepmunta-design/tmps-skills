@@ -551,7 +551,12 @@ select.select{
   .grid{ grid-template-columns: 1fr; }
 
   /* ✅ En móvil: no mostramos la tarjeta derecha (evita el hueco vacío) */
-  .card.rightCard{ display:none; }
+ .card.rightCard{
+  display:flex;
+  flex-direction: column;
+  height: 70vh;       /* fija la referencia */
+  min-height: 520px;
+}
 }
 
 
@@ -579,14 +584,13 @@ select.select{
    ========================= */
 .modelFrame{
   width: 100%;
-  height: 100%;
+  height: 70vh;     /* altura explícita */
   min-height: 520px;
   border: 0;
   display: block;
   background: transparent;
-    touch-action: pan-y;
-  overscroll-behavior: contain;
 }
+
 
 /* En móvil no se ve rightCard igual, pero por si acaso */
 @media (max-width: 900px){
@@ -601,12 +605,15 @@ select.select{
   min-height: 0;
 }
 .fsIframe{
+  position: absolute;
+  inset: 0;
   width: 100%;
   height: 100%;
   border: 0;
   display: block;
   background: transparent;
 }
+
 
 .card.rightCard::after{
   content:"";
@@ -1092,10 +1099,13 @@ select.select{
 .fsClose{ padding: 9px 12px; border-radius: 14px; }
 
 .fsBody{
-  padding: 14px 14px;
-  overflow: auto;
+  flex: 1 1 auto;       /* ✅ ocupa todo el alto disponible */
+  padding: 0 !important; /* ✅ sin padding que recorte */
+  overflow: hidden;      /* ✅ el scroll lo hace el iframe */
   min-height: 0;
+  position: relative;    /* ✅ para posicionar el iframe dentro */
 }
+
 /* Card interior dentro del overlay móvil (mismo look que rightCard) */
 .fsCard{
   position: relative;
@@ -1259,45 +1269,6 @@ select.select{
     flex: 0 0 100%;
     width: 100%;
   }
-/* ✅ El scroll lo hace el contenedor (no el iframe) */
-.rightCard{
-  padding: 0 !important;
-  overflow: auto !important;
-  -webkit-overflow-scrolling: touch;
-  overscroll-behavior: contain;
-  touch-action: pan-y;
-}
-
-/* El iframe solo “pinta” contenido; su altura la ajusta JS */
-.modelFrame{
-  display:block;
-  width:100%;
-  height: 100%;
-  min-height: 100%;
-  border:0;
-  background: transparent;
-}
-
-/* ✅ Scrollbar estilo “glassy” (Chromium/Edge) */
-.rightCard::-webkit-scrollbar{ width: 10px; }
-.rightCard::-webkit-scrollbar-track{
-  background: rgba(255,255,255,0.06);
-  border-left: 1px solid rgba(255,255,255,0.08);
-}
-.rightCard::-webkit-scrollbar-thumb{
-  background: rgba(255,255,255,0.18);
-  border: 2px solid rgba(0,0,0,0);
-  background-clip: padding-box;
-  border-radius: 999px;
-}
-.rightCard::-webkit-scrollbar-thumb:hover{
-  background: rgba(255,255,255,0.26);
-  border: 2px solid rgba(0,0,0,0);
-  background-clip: padding-box;
-}
-
-/* Firefox */
-.rightCard{ scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.22) rgba(255,255,255,0.06); }
 
   /* ✅ controles: UNA SOLA LÍNEA */
   .controlsRow{
@@ -2335,25 +2306,12 @@ init().finally(()=>{
   // micro-ritual de entrada (pro)
   requestAnimationFrame(()=> document.body.classList.add("loaded"));
 
-// ✅ Recibir altura del embed (Modelos) y ajustar iframe
+// ✅ Fijo: el iframe siempre ocupa el alto del panel (no se auto-redimensiona)
 const modelFrame = document.getElementById("modelFrame");
-
 if(modelFrame){
-
-  window.addEventListener("message", (ev)=>{
-    const d = ev.data || {};
-    if(d && d.type === "tmps:embedHeight" && Number.isFinite(d.h)){
-      // +2px para evitar cortes por redondeo
-      modelFrame.style.height = (Math.max(200, d.h) + 2) + "px";
-    }
-  });
-
-  // fallback: si no llega nada, al menos que sea usable
-  modelFrame.addEventListener("load", ()=>{
-    // altura mínima razonable
-    modelFrame.style.height = "1200px";
-  });
+  modelFrame.style.height = "100%";
 }
+
 
 });
 

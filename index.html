@@ -1156,13 +1156,8 @@ select.select{
      CONFIG — AJUSTA ESTO
      ========================= */
 
-const IS_GHPAGES = location.hostname.endsWith('github.io');
-
-// - En GitHub Pages: /data del propio site
-// - En Teachable / otros: jsDelivr
-const GH_BASE = IS_GHPAGES
-  ? (location.origin + '/data')
-  : 'https://cdn.jsdelivr.net/gh/josepmunta-design/tmps-data@main/data';
+// Datos SIEMPRE desde tmps-data vía jsDelivr (estable en cualquier dominio)
+const GH_BASE = 'https://cdn.jsdelivr.net/gh/josepmunta-design/tmps-data@main/data';
 
 function gh(path){
   return `${GH_BASE}/${String(path).replace(/^\/+/,'')}`;

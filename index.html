@@ -10,6 +10,10 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
 <script>
+  // ✅ compatibilidad global (evita ReferenceError)
+var IS_EMBED = false;
+  // ✅ evita TDZ (Cannot access before initialization)
+var GH_SCHOOLS = null;
 const IS_GHPAGES = location.hostname.endsWith('github.io');
 
 const DATA_BASE = IS_GHPAGES
@@ -3487,7 +3491,7 @@ async function fetchJson(url){
 
 
 // Escuelas disponibles en GitHub (solo para poblar el selector)
-let GH_SCHOOLS = []; // array de {id,label,color,order...} o lo que tengas
+GH_SCHOOLS = []; // array de {id,label,color,order...} o lo que tengas
 
 // Cache de escuelas/modelos cargados desde GitHub
 const GH_SCHOOL_LOADED = new Set();   // slugs (ej: "humanista")

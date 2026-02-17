@@ -1,0 +1,1973 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Juego · Adivina el modelo</title>
+
+  <!-- Montserrat -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+
+  <style>
+    :root{
+      --bg:#0b0f14;
+      --panelA: rgba(19,26,34,0.82);
+      --panelB: rgba(19,26,34,0.62);
+      --text:#e7edf5;
+      --muted:#c7d2e1;
+      --muted2:#9fb0c3;
+      --accent:#D9AA3F;
+
+      --edgePad: 14px;
+      --cardW: 980px;
+
+      --panelGlow: rgba(255,255,255,0.06);
+     --schoolColor: rgba(217,170,63,.85);
+--dotColor: #D9AA3F;
+
+    }
+
+    *{ box-sizing:border-box; }
+    html,body{
+      height:100%;
+      margin:0;
+      color: var(--text);
+      overflow-x:hidden;
+      overflow-y:auto;
+      font-family: 'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+      background:
+        radial-gradient(1400px 900px at 15% 15%, rgba(217,170,63,.12), transparent 55%),
+        radial-gradient(1200px 800px at 85% 35%, rgba(78,121,167,.14), transparent 60%),
+        radial-gradient(900px 600px at 50% 80%, rgba(255,255,255,.04), transparent 65%),
+        linear-gradient(180deg, #0b0f14 0%, #0a0e13 100%);
+    }
+
+    /* blobs (ligeros) */
+    .bg-blobs{
+      position: fixed; inset:0; pointer-events:none; z-index:0;
+      overflow:hidden; filter: blur(70px); opacity:.55;
+      background:
+        radial-gradient(circle at 22% 78%, rgba(118,183,178,.18), rgba(118,183,178,0) 52%),
+        radial-gradient(circle at 72% 86%, rgba(176,122,161,.16), rgba(176,122,161,0) 55%);
+      animation: blobBg 40s ease-in-out infinite;
+    }
+    .bg-blobs::before, .bg-blobs::after{
+      content:""; position:absolute; width:520px; height:520px; border-radius:999px;
+      will-change: transform; mix-blend-mode: screen; opacity:.22;
+    }
+    .bg-blobs::before{
+      left:-120px; top:-140px;
+      background: radial-gradient(circle at 30% 30%, rgba(217,170,63,.95), rgba(217,170,63,0) 62%);
+      animation: blobA 28s ease-in-out infinite;
+    }
+    .bg-blobs::after{
+      right:-160px; top:120px;
+      background: radial-gradient(circle at 35% 35%, rgba(78,121,167,.95), rgba(78,121,167,0) 62%);
+      animation: blobB 34s ease-in-out infinite;
+    }
+    @keyframes blobA{
+      0%{transform:translate3d(0,0,0) scale(1);}
+      35%{transform:translate3d(260px,220px,0) scale(1.08);}
+      70%{transform:translate3d(520px,-40px,0) scale(0.96);}
+      100%{transform:translate3d(0,0,0) scale(1);}
+    }
+    @keyframes blobB{
+      0%{transform:translate3d(0,0,0) scale(1);}
+      30%{transform:translate3d(-260px,260px,0) scale(1.06);}
+      65%{transform:translate3d(-520px,-80px,0) scale(0.94);}
+      100%{transform:translate3d(0,0,0) scale(1);}
+    }
+    @keyframes blobBg{
+      0%{background-position:0% 0%, 0% 0%;}
+      50%{background-position:14% -10%, -10% 12%;}
+      100%{background-position:0% 0%, 0% 0%;}
+    }
+    @media (prefers-reduced-motion: reduce){
+      .bg-blobs, .bg-blobs::before, .bg-blobs::after{ animation:none !important; }
+    }
+
+    .app{
+      position: relative; z-index: 2;
+      min-height: 100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding: 26px 18px;
+    }
+
+    .panel{
+      position: relative;
+      overflow: hidden;
+      width: min(var(--cardW), 100%);
+      border-radius: 20px;
+      background: linear-gradient(180deg, var(--panelA), var(--panelB));
+      border:1px solid rgba(255,255,255,0.10);
+      box-shadow:
+        0 18px 50px rgba(0,0,0,0.45),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+      backdrop-filter: blur(12px) saturate(115%);
+      -webkit-backdrop-filter: blur(12px) saturate(115%);
+    }
+    .panel::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      border-radius:inherit;
+      pointer-events:none;
+      background:
+        radial-gradient(520px 320px at 88% 12%, var(--panelGlow), transparent 62%),
+        radial-gradient(700px 420px at 18% 85%, rgba(255,255,255,0.05), transparent 65%);
+      opacity:.95;
+      mix-blend-mode: screen;
+      animation: panelBreath 5s ease-in-out infinite;
+    }
+    @keyframes panelBreath{
+      0%,100%{ background-position: 0% 0%; opacity:.85; }
+      50%{ background-position: 100% 100%; opacity:1; }
+    }
+
+    .wrap{ position: relative; z-index: 1; padding: 18px 18px 16px; }
+
+ .hero{
+  position: relative;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background:
+    radial-gradient(900px 420px at 15% 10%, rgba(255,255,255,0.10), transparent 60%),
+    radial-gradient(700px 340px at 70% 30%, var(--panelGlow), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.10));
+  box-shadow: 0 18px 70px rgba(0,0,0,.45);
+  padding: 18px 18px;
+  overflow:hidden;
+  margin-bottom: 12px;
+}
+.hero::after{
+  content:"";
+  position:absolute;
+  inset:-40px;
+  pointer-events:none;
+  opacity:.22;
+  background:
+    radial-gradient(circle at 12px 12px, rgba(255,255,255,0.10) 1px, transparent 1.6px);
+  background-size: 24px 24px;
+  transform: rotate(6deg);
+}
+
+/* variante sobria */
+.hero--mini{
+  padding: 16px 16px;
+}
+
+/* eyebrow mejorado */
+.eyebrow{
+  display:flex;
+  align-items:center;
+  gap:8px;
+  font-size: 10.5px;
+  font-weight: 900;
+  letter-spacing: .9px;
+  text-transform: uppercase;
+  color: rgba(231,237,245,0.62);
+  margin-bottom: 10px;
+  position: relative;
+  z-index: 1;
+}
+
+.heroBadge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.18);
+}
+
+.heroBadgeDot{
+  width:8px; height:8px; border-radius:999px;
+  background: color-mix(in srgb, var(--schoolColor) 70%, transparent);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--schoolColor) 14%, transparent);
+}
+
+.heroSep{
+  opacity:.35;
+}
+
+.heroMeta{
+  opacity:.75;
+}
+
+/* título más “pro” */
+.title{
+  font-size: 24px;
+  font-weight: 950;
+  letter-spacing: -0.7px;
+  line-height: 1.05;
+  margin: 0 0 6px 0;
+  position: relative;
+  z-index: 1;
+}
+.title::before{ content:""; display:none; }
+
+.sub{
+  margin: 0;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: rgba(227,235,246,0.88);
+  max-width: 72ch;
+  position: relative;
+  z-index: 1;
+}
+
+
+.heroRules{
+  margin-top: 10px;
+  display:flex;
+  flex-wrap: wrap;
+  gap:8px;
+}
+.ruleChip{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.06);
+  color: rgba(231,237,245,0.92);
+  font-size: 11.5px;
+  font-weight: 800;
+}
+.ruleChip b{ color:#fff; font-weight: 950; }
+
+/* panel derecho (mini stats) */
+.heroSide{
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.05);
+  padding: 12px 12px;
+  box-shadow: 0 16px 50px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.heroSideTitle{
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: rgba(231,237,245,0.65);
+  margin-bottom: 10px;
+}
+.heroStats{
+  display:grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.hStat{
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.14);
+  padding: 10px 10px;
+}
+.hStat .k{
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+  color: rgba(231,237,245,0.60);
+}
+.hStat .v{
+  margin-top: 4px;
+  font-size: 16px;
+  font-weight: 950;
+  color:#fff;
+}
+.heroHint{
+  margin-top: 10px;
+  font-size: 11.5px;
+  line-height: 1.4;
+  color: rgba(231,237,245,0.70);
+}
+.heroHint kbd{
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+  font-size: 10.5px;
+  padding: 2px 7px;
+  border-radius: 8px;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(0,0,0,0.18);
+  color: rgba(231,237,245,0.92);
+}
+
+.topbar{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+  margin: 0 0 10px 0;
+  flex-wrap: wrap;
+}
+
+/* ✅ fila derecha con botones + selector */
+.controlsRow{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap: wrap;
+}
+
+/* wrapper botones */
+.actions{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  flex-wrap: wrap;
+}
+
+
+
+    .score{
+      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
+      background: rgba(255,255,255,0.05);
+      border: 1px solid rgba(255,255,255,0.10);
+      border-radius: 14px;
+      padding: 10px 12px;
+    }
+    .score .k{ font-size:11px; font-weight:900; letter-spacing:.5px; text-transform:uppercase; color: rgba(231,237,245,.70); }
+    .score .v{ font-size:14px; font-weight:900; color:#fff; }
+.score .dot{
+  width:10px; height:10px; border-radius:999px;
+  background: color-mix(in srgb, var(--dotColor) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--dotColor) 90%, transparent);
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--dotColor) 14%, transparent);
+}
+
+
+    .btn{
+      border: 1px solid rgba(255,255,255,0.14);
+      background: rgba(15,22,32,0.38);
+      color: rgba(231,237,245,0.95);
+      border-radius: 14px;
+      padding: 10px 12px;
+      font-weight: 900;
+      letter-spacing: .2px;
+      cursor:pointer;
+      user-select:none;
+      box-shadow: 0 14px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,0.08);
+      transition: transform .12s ease, background .12s ease, border-color .12s ease, box-shadow .12s ease;
+    }
+    .btn:hover{
+      transform: translateY(-1px);
+      background: rgba(15,22,32,0.62);
+      border-color: rgba(217,170,63,0.35);
+      box-shadow: 0 18px 60px rgba(0,0,0,.55), 0 0 0 6px rgba(217,170,63,.06);
+    }
+    .btn:active{ transform: translateY(0) scale(.98); }
+    .btn:focus-visible{ outline:none; box-shadow: 0 0 0 3px rgba(217,170,63,.22), 0 18px 60px rgba(0,0,0,.55); }
+    /* ✅ Textos botones: desktop = largo, móvil estrecho = corto */
+.tShort{ display:none !important; }
+.tLong{ display:inline !important; }
+
+@media (max-width: 360px){
+  .tLong{ display:none !important; }
+  .tShort{ display:inline !important; }
+}
+
+    /* ✅ Selector escuela (glassy) */
+  /* ✅ Selector escuela — glassy premium */
+.filterBox{
+  position: relative;
+  display:flex;
+  align-items:center;
+  gap:10px;
+
+  padding: 10px 12px;
+  border-radius: 14px;
+
+  border: 1px solid rgba(255,255,255,0.10);
+  background:
+    radial-gradient(600px 120px at 20% 0%, rgba(255,255,255,0.08), transparent 62%),
+    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.14));
+
+  box-shadow:
+    0 18px 60px rgba(0,0,0,.35),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+
+  backdrop-filter: blur(10px) saturate(120%);
+  -webkit-backdrop-filter: blur(10px) saturate(120%);
+  transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease, background .12s ease;
+}
+.filterBox:hover{
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,0.14);
+  box-shadow:
+    0 22px 70px rgba(0,0,0,.45),
+    0 0 0 6px color-mix(in srgb, var(--schoolColor) 10%, transparent),
+    inset 0 1px 0 rgba(255,255,255,0.10);
+}
+
+.filterLabel{
+  font-size: 11px;
+  font-weight: 850;
+  letter-spacing: .2px;
+  text-transform: none;
+  color: rgba(231,237,245,0.55);
+  white-space: nowrap;
+}
+
+
+/* El select cerrado: esto es lo que queda perfecto */
+select.select{
+  appearance:none;
+  -webkit-appearance:none;
+  -moz-appearance:none;
+
+  min-width: 220px;
+  height: 38px;
+
+  padding: 0 42px 0 12px;
+  border-radius: 12px;
+
+  border: 1px solid rgba(255,255,255,0.14);
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--schoolColor) 9%, rgba(0,0,0,0.18)),
+      rgba(0,0,0,0.22)
+    );
+
+  color: rgba(231,237,245,0.96);
+  font-weight: 950;
+  letter-spacing: .2px;
+
+  cursor: pointer;
+  outline: none;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    0 10px 30px rgba(0,0,0,.22);
+
+  transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease, background .12s ease;
+}
+
+/* Hover “sobrio” */
+select.select:hover{
+  border-color: rgba(255,255,255,0.18);
+  background:
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--schoolColor) 12%, rgba(0,0,0,0.18)),
+      rgba(0,0,0,0.24)
+    );
+}
+
+/* Focus premium */
+select.select:focus-visible{
+  border-color: color-mix(in srgb, var(--schoolColor) 45%, rgba(255,255,255,0.12));
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--schoolColor) 20%, transparent),
+    0 14px 40px rgba(0,0,0,.35),
+    inset 0 1px 0 rgba(255,255,255,0.10);
+}
+
+/* Flecha minimal (SVG) en lugar de ▾ */
+.filterBox::after{
+  content:"";
+  position:absolute;
+  right: 16px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 14px;
+  height: 14px;
+  pointer-events:none;
+  opacity:.85;
+  background: no-repeat center / 14px 14px
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'%3E%3Cpath fill='rgba(231,237,245,0.92)' d='M7 10l5 5l5-5z'/%3E%3C/svg%3E");
+}
+
+/* Intento de mejorar el menú abierto (limitado por navegador) */
+select.select option{
+  background: #0f1620;
+  color: rgba(231,237,245,0.96);
+}
+
+/* En navegadores que respetan, empuja a esquema oscuro */
+select.select{
+  color-scheme: dark;
+}
+
+    .grid{
+      display:grid;
+      grid-template-columns: 1.1fr .9fr;
+      gap: 12px;
+      align-items: stretch;
+    }
+ @media (max-width: 900px){
+  .grid{ grid-template-columns: 1fr; }
+
+  /* ✅ En móvil: no mostramos la tarjeta derecha (evita el hueco vacío) */
+  .card.rightCard{ display:none; }
+}
+
+
+   .card{
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.05);
+  border-radius: 18px;
+  padding: 14px 14px;
+  overflow:hidden;
+}
+
+/* ✅ SOLO la tarjeta derecha: que distribuya verticalmente y deje crecer la descripción */
+.card.rightCard{
+  display:flex;
+  flex-direction: column;
+  min-height: 0; /* clave para que el scroll interno funcione bien */
+}
+
+
+    .ideaText{
+      font-size: 16px;
+      line-height: 1.55;
+      color: rgba(231,237,245,0.95);
+      white-space: pre-wrap;
+    }
+    .metaRow{
+      margin-top: 10px;
+      display:flex;
+      gap:8px;
+      flex-wrap: wrap;
+      align-items:center;
+    }
+    .pill{
+      display:inline-block;
+      padding: 4px 10px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 800;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      color:#dfe6f1;
+    }
+
+    .answers{
+      display:grid;
+      grid-template-columns: 1fr;
+      gap: 10px;
+      margin-top: 12px;
+    }
+
+    .opt{
+      text-align:left;
+      padding: 12px 12px;
+      border-radius: 16px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background:
+        linear-gradient(
+          180deg,
+          color-mix(in srgb, var(--schoolColor) 8%, transparent),
+          rgba(255,255,255,0.04)
+        );
+      color:#fff;
+      font-weight: 900;
+      cursor:pointer;
+      transition: transform .12s ease, border-color .12s ease, background .12s ease, box-shadow .12s ease;
+      user-select:none;
+      position:relative;
+    }
+    .opt:hover{
+      transform: translateY(-1px);
+      border-color: rgba(255,255,255,0.16);
+      background: rgba(255,255,255,0.06);
+    }
+    .opt[disabled]{ opacity: .62; cursor: default; transform:none; }
+    .opt.correct{
+      border-color: color-mix(in srgb, #7CFFB2 45%, rgba(255,255,255,0.20));
+      box-shadow: 0 0 0 3px rgba(124,255,178,.10), inset 0 1px 0 rgba(255,255,255,0.10);
+    }
+    .opt.wrong{
+      border-color: color-mix(in srgb, #ff6b6b 45%, rgba(255,255,255,0.20));
+      box-shadow: 0 0 0 3px rgba(255,107,107,.08), inset 0 1px 0 rgba(255,255,255,0.10);
+    }
+
+    .rightTop{
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      flex-wrap:wrap;
+      margin-bottom: 8px;
+    }
+
+    .author{
+      display:flex;
+      align-items:center;
+      gap:10px;
+      min-width:0;
+    }
+    .photo{
+      width:56px; height:56px; border-radius:999px;
+      object-fit:cover;
+      border: 1px solid rgba(255,255,255,0.18);
+      background: rgba(255,255,255,0.06);
+      box-shadow: 0 6px 18px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
+      flex: 0 0 auto;
+    }
+    .authorText{ min-width:0; }
+    .authorName{
+      font-size: 13px;
+      font-weight: 900;
+      line-height:1.2;
+      color:#fff;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 42ch;
+    }
+    .authorMeta{
+      font-size: 12px;
+      font-weight: 700;
+      color: rgba(231,237,245,0.75);
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      max-width: 42ch;
+    }
+
+    .status{
+      margin-top: 10px;
+      padding: 10px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      color: rgba(231,237,245,.90);
+      font-weight: 800;
+      line-height: 1.35;
+      display:none;
+    }
+    .status.is-on{ display:block; }
+    .status .small{ display:block; margin-top: 4px; font-weight:700; opacity:.75; }
+    
+    /* =========================
+   GAME OVER (estética)
+   ========================= */
+.ideaText.is-gameover{
+  font-size: 22px;
+  font-weight: 950;
+  letter-spacing: -0.7px;
+  line-height: 1.05;
+}
+.ideaText.is-gameover .goSub{
+  margin-top: 8px;
+  font-size: 13.5px;
+  font-weight: 750;
+  line-height: 1.45;
+  color: rgba(231,237,245,0.78);
+}
+.ideaText.is-gameover .goSub b{ color:#fff; font-weight: 950; }
+
+.status.gameover{
+  margin-top: 12px;
+  padding: 16px 16px;
+  border-radius: 18px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background:
+    radial-gradient(900px 180px at 20% 0%, rgba(255,255,255,0.08), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,0.07), rgba(0,0,0,0.10));
+  box-shadow:
+    0 18px 70px rgba(0,0,0,.45),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+}
+
+.goTop{
+  display:flex;
+  align-items:flex-start;
+  justify-content:space-between;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.goBadge{
+  display:inline-flex;
+  align-items:center;
+  gap:8px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.18);
+  font-size: 11px;
+  font-weight: 950;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+  color: rgba(231,237,245,0.90);
+}
+.goMeta{
+  font-size: 12px;
+  font-weight: 750;
+  color: rgba(231,237,245,0.70);
+}
+
+.goStats{
+  margin-top: 12px;
+  display:grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+@media (max-width: 520px){
+  .goStats{ grid-template-columns: repeat(2, minmax(0,1fr)); }
+}
+
+.goStat{
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.14);
+  padding: 12px 12px;
+}
+.goStat .k{
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .7px;
+  text-transform: uppercase;
+  color: rgba(231,237,245,0.60);
+}
+.goStat .v{
+  margin-top: 4px;
+  font-size: 18px;
+  font-weight: 950;
+  color:#fff;
+}
+
+.goActions{
+  margin-top: 14px;
+  display:flex;
+  gap:10px;
+  flex-wrap:wrap;
+}
+.btn.btnSmall{
+  padding: 9px 12px;
+  border-radius: 14px;
+  font-size: 12px;
+  font-weight: 950;
+}
+
+.goFine{
+  margin-top: 12px;
+  font-size: 12px;
+  line-height: 1.45;
+  color: rgba(231,237,245,0.68);
+}
+
+.modelDesc{
+  margin-top: 10px;
+  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: rgba(231,237,245,0.92);
+  font-size: 13px;
+  line-height: 1.55;
+  white-space: pre-wrap;
+
+  /* ✅ ocupa todo el espacio sobrante de la tarjeta derecha */
+  flex: 1 1 auto;
+  min-height: 0;
+
+  /* ✅ si aún así es muy larga, scroll interno */
+  overflow: auto;
+}
+
+
+    .fine{
+      margin-top: 12px;
+      opacity: .70;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+    
+    /* =========================
+   FULLSCREEN móvil (panel derecho)
+   ========================= */
+.fsOverlay{
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 14px;
+  background: rgba(0,0,0,0.55);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.fsOverlay.is-on{ display:flex; }
+
+.fsSheet{
+  width: min(980px, 100%);
+  height: min(92vh, 92dvh);
+  border-radius: 20px;
+  overflow: hidden;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: linear-gradient(180deg, var(--panelA), var(--panelB));
+  box-shadow: 0 30px 90px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.06);
+  display:flex;
+  flex-direction: column;
+}
+
+.fsTop{
+  padding: 12px 12px;
+  display:flex;
+  align-items:center;
+  justify-content: space-between;
+  gap:10px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+}
+.fsTitle{
+  font-weight: 900;
+  font-size: 13px;
+  color: rgba(231,237,245,0.9);
+}
+.fsClose{ padding: 9px 12px; border-radius: 14px; }
+
+.fsBody{
+  padding: 14px 14px;
+  overflow: auto;
+  min-height: 0;
+}
+
+.fsBottom{
+  padding: 12px 12px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  background: rgba(255,255,255,0.04);
+  display:flex;
+  justify-content:flex-end;
+}
+
+/* Solo tiene sentido en móvil */
+@media (min-width: 901px){
+  .fsOverlay{ display:none !important; }
+}
+/* Resultado (fullscreen) */
+.fsResult{
+  margin: 12px 12px 0 12px;
+  padding: 12px 12px;
+  border-radius: 16px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background:
+    radial-gradient(600px 120px at 20% 0%, rgba(255,255,255,0.08), transparent 60%),
+    linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  color: rgba(231,237,245,.96);
+  line-height: 1.25;
+  box-shadow: 0 14px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+/* layout interno */
+.fsResultRow{
+  display:flex;
+  align-items:center;
+  justify-content:space-between;
+  gap:10px;
+}
+.fsResultLeft{
+  display:flex;
+  align-items:center;
+  gap:10px;
+  min-width:0;
+}
+.fsResultIcon{
+  width:28px; height:28px;
+  border-radius:999px;
+  display:grid;
+  place-items:center;
+  flex: 0 0 auto;
+  border: 1px solid rgba(255,255,255,0.14);
+  background: rgba(0,0,0,0.18);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
+}
+.fsResultTitle{
+  font-weight: 950;
+  letter-spacing: -0.2px;
+  color:#fff;
+  white-space: nowrap;
+  overflow:hidden;
+  text-overflow: ellipsis;
+}
+.fsResultPill{
+  padding: 6px 10px;
+  border-radius: 999px;
+  font-weight: 950;
+  font-size: 12px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: rgba(0,0,0,0.18);
+  color: rgba(231,237,245,0.95);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.fsResult .small{
+  display:block;
+  margin-top: 6px;
+  font-weight: 750;
+  opacity: .78;
+  font-size: 12px;
+  line-height: 1.35;
+}
+
+/* estados */
+.fsResult.ok{
+  border-color: color-mix(in srgb, #7CFFB2 38%, rgba(255,255,255,0.10));
+  box-shadow:
+    0 14px 40px rgba(0,0,0,.35),
+    0 0 0 4px rgba(124,255,178,.07),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.fsResult.ok .fsResultIcon{
+  border-color: rgba(124,255,178,.40);
+  background: color-mix(in srgb, rgba(124,255,178,.18) 60%, rgba(0,0,0,0.18));
+}
+.fsResult.ok .fsResultPill{
+  border-color: rgba(124,255,178,.35);
+  background: rgba(124,255,178,.10);
+}
+
+.fsResult.bad{
+  border-color: color-mix(in srgb, #ff6b6b 38%, rgba(255,255,255,0.10));
+  box-shadow:
+    0 14px 40px rgba(0,0,0,.35),
+    0 0 0 4px rgba(255,107,107,.06),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+}
+.fsResult.bad .fsResultIcon{
+  border-color: rgba(255,107,107,.40);
+  background: color-mix(in srgb, rgba(255,107,107,.16) 60%, rgba(0,0,0,0.18));
+}
+.fsResult.bad .fsResultPill{
+  border-color: rgba(255,107,107,.35);
+  background: rgba(255,107,107,.08);
+}
+
+/* Ocultar Rondas (texto + número) */
+#roundsLabel,
+#rounds{
+  display: none !important;
+}
+/* =========================
+   MÓVIL — ocultar tarjeta derecha SIEMPRE
+   (evita el recuadro vacío)
+   ========================= */
+@media (max-width: 900px){
+  .grid > .card.rightCard{
+    display: none !important;
+  }
+}
+    /* ✅ MÓVIL: score arriba y debajo una sola fila: Siguiente + Reset + Selector */
+@media (max-width: 900px){
+
+  /* score arriba */
+  .topbar{ align-items: stretch; }
+  .score{
+    flex: 0 0 100%;
+    width: 100%;
+  }
+
+  /* ✅ controles: UNA SOLA LÍNEA */
+  .controlsRow{
+    flex: 0 0 100%;
+    width: 100%;
+    justify-content: flex-end;
+    flex-wrap: nowrap;          /* clave */
+    gap: 8px;
+  }
+  .actions{
+    display:flex;
+    align-items:center;
+    gap: 8px;
+    flex-wrap: nowrap;          /* clave */
+  }
+
+  /* ocultar label */
+  .filterLabel{ display:none !important; }
+
+  /* ✅ botones compactos */
+  .btn.btnTight{
+    padding: 8px 10px;
+    border-radius: 12px;
+    font-size: 12.5px;
+    letter-spacing: 0;
+    box-shadow: 0 10px 26px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,0.08);
+  }
+
+
+
+
+  /* selector compacto */
+  .filterBox{
+    padding: 7px 9px;
+    border-radius: 12px;
+    gap: 0;
+    flex: 0 1 auto;
+  }
+  select.select{
+    height: 34px;
+    min-width: 0;               /* clave */
+    width: clamp(110px, 30vw, 160px);
+    padding: 0 34px 0 10px;
+    font-size: 12.5px;
+    font-weight: 950;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+  }
+}
+
+
+}
+
+/* ✅ ultra-ultra: aún más apretado */
+@media (max-width: 320px){
+  .btn.btnTight{
+    padding: 7px 9px;
+    font-size: 12px;
+  }
+  select.select{
+    width: clamp(95px, 28vw, 140px);
+    padding: 0 32px 0 9px;
+  }
+  .controlsRow, .actions{ gap: 6px; }
+}
+
+
+</style>
+
+
+  </style>
+</head>
+
+<body>
+  <div class="bg-blobs"></div>
+
+  <div class="app">
+    <section class="panel">
+      <div class="wrap">
+     <!-- (Landing pendiente) Hero eliminado -->
+
+
+
+        <div class="topbar">
+  <div class="score" id="scoreBox">
+  <span class="dot" aria-hidden="true"></span>
+
+  <span class="k">Puntos</span>
+  <span class="v" id="score">0</span>
+
+  <span class="k">Vidas</span>
+  <span class="v" id="lives">3</span>
+
+  <span class="k">Racha</span>
+  <span class="v" id="streak">0</span>
+
+  <span class="k" id="roundsLabel">Rondas</span>
+  <span class="v" id="rounds">0</span>
+
+</div>
+
+   <div class="controlsRow">
+    <div class="actions">
+    <button class="btn btnTight" id="btnNext">
+  <span class="tLong">Siguiente</span>
+  <span class="tShort">Sig.</span>
+</button>
+
+<button class="btn btnTight" id="btnReset">
+  <span class="tLong">Reset</span>
+  <span class="tShort">Res.</span>
+</button>
+
+    </div>
+
+    <!-- ✅ Filtro por escuela -->
+    <div class="filterBox">
+      <span class="filterLabel">Escuela</span>
+      <select id="schoolFilter" class="select">
+        <option value="todas">Todas</option>
+        <!-- opciones dinámicas por JS -->
+      </select>
+    </div>
+  </div>
+
+
+        </div>
+
+        <div class="grid">
+          <!-- IZQUIERDA: IDEA -->
+          <div class="card">
+        
+            <div class="ideaText" id="ideaText">Cargando…</div>
+
+            <div class="metaRow">
+              <span class="pill" id="pillYear">—</span>
+            <span class="pill" id="pillCode">—</span>
+
+            </div>
+
+            <div class="answers" id="answers"></div>
+
+            <div class="status" id="status"></div>
+          </div>
+
+          <!-- DERECHA: “revelado” / foto / referencia -->
+          <div class="card rightCard">
+
+           <div class="rightTop">
+  <div class="author">
+    <img class="photo" id="photo" alt="" />
+    <div class="authorText">
+      <div class="authorName" id="modelLabel">—</div>
+      <div class="authorMeta" id="modelAuthors">—</div>
+    </div>
+  </div>
+</div>
+
+<div class="modelDesc" id="modelDesc">—</div>
+
+
+          </div>
+        </div>
+
+      </div>
+    </section>
+  </div>
+<!-- FULLSCREEN (móvil) -->
+<div class="fsOverlay" id="fsOverlay" aria-hidden="true">
+  <div class="fsSheet" role="dialog" aria-modal="true" aria-label="Detalle del modelo">
+    <div class="fsTop">
+      <div class="fsTitle">Detalle del modelo</div>
+      <button class="btn fsClose" id="btnCloseFs">Cerrar</button>
+    </div>
+
+    <!-- aquí clonamos el contenido del panel derecho -->
+   <div class="fsResult" id="fsResult"></div>
+
+<!-- aquí clonamos el contenido del panel derecho -->
+<div class="fsBody" id="fsBody"></div>
+
+    <div class="fsBottom">
+      <button class="btn" id="btnNextFs">Siguiente</button>
+    </div>
+  </div>
+</div>
+
+  <script>
+  /* =========================
+     CONFIG — AJUSTA ESTO
+     ========================= */
+
+const IS_GHPAGES = location.hostname.endsWith('github.io');
+
+// - En GitHub Pages: /data del propio site
+// - En Teachable / otros: jsDelivr
+const GH_BASE = IS_GHPAGES
+  ? (location.origin + '/data')
+  : 'https://cdn.jsdelivr.net/gh/josepmunta-design/tmps-data@main/data';
+
+function gh(path){
+  return `${GH_BASE}/${String(path).replace(/^\/+/,'')}`;
+}
+
+const ESCUELAS_INDEX  = gh('Core/escuelas/index.json');
+const FOTOS_JSON_URL  = gh('Core/fotos/foto.json');
+const PHOTOS_BASE_URL = gh('Core/fotos/');
+
+  /* =========================
+     Estado
+     ========================= */
+  const $ = (s)=>document.querySelector(s);
+  const elIdea   = $("#ideaText");
+  const elAns    = $("#answers");
+  const elScore  = $("#score");
+  const elRounds = $("#rounds");
+    const elLives  = $("#lives");
+const elStreak = $("#streak");
+
+  const elStatus = $("#status");
+  const elLabel  = $("#modelLabel");
+  const elAuth   = $("#modelAuthors");
+const elPhoto  = $("#photo");
+const elDesc   = $("#modelDesc");
+const pillSchool = $("#pillSchool");
+const pillYear = $("#pillYear");
+const pillCode = $("#pillCode");
+const fsOverlay = $("#fsOverlay");
+const fsResult  = $("#fsResult");
+const fsBody    = $("#fsBody");
+const btnCloseFs = $("#btnCloseFs");
+const btnNextFs  = $("#btnNextFs");
+const elSchoolFilter = $("#schoolFilter");
+
+
+
+
+let score = 0;
+let rounds = 0;
+
+let lives = 3;
+let maxLives = 5;
+
+let streak = 0;
+let bestStreak = 0;
+
+// récord guardado
+let bestScore = Number(localStorage.getItem("tmps_bestScore") || 0);
+let bestStreakEver = Number(localStorage.getItem("tmps_bestStreak") || 0);
+
+
+  /** pool de modelos (filtrado): [{id,label,grupo,year,autores,file,url}] */
+  let MODELS = [];
+
+  /** pool de items (filtrado): [{kind, modelId, modelLabel, grupo, year, autores, text}] */
+  let ITEMS = [];
+
+  /** ✅ pools completos (sin filtrar) */
+  let MODELS_ALL = [];
+  let ITEMS_ALL = [];
+
+  /** ✅ filtro actual */
+  let CURRENT_SCHOOL = "todas";
+
+
+  /** mapa de fotos: modelId -> filename */
+  let PHOTO_BY_MODEL = {};
+/** mapa: modelId -> descripcion */
+let DESC_BY_MODEL = {};
+
+  /** ronda actual */
+  let CURRENT = null;
+
+  /* =========================
+     Utils
+     ========================= */
+    function limpiarAutorFinal(txt){
+  let s = String(txt ?? "").trim();
+
+  // 1) "Referencia: ..." o "Referencias: ..." al final
+  s = s.replace(/\s*(referencias?|ref\.?)\s*:\s*.+$/i, "").trim();
+
+  // 2) cualquier paréntesis final "(...)" (típico APA) al final
+  s = s.replace(/\s*\([^)]*\)\s*\.?\s*$/g, "").trim();
+
+  // 3) "Autor, 1999" o "Autor et al., 1999" al final (sin paréntesis)
+  s = s.replace(/\s*[A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑáéíóúñ.'-]*(?:\s+et\s+al\.)?,\s*\d{4}[a-z]?\s*\.?\s*$/g, "").trim();
+
+  // 4) "Autor (1999)" al final (sin paréntesis externos)
+  s = s.replace(/\s*[A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑáéíóúñ.'-]*(?:\s+et\s+al\.)?\s*\(\s*\d{4}[a-z]?\s*\)\s*\.?\s*$/g, "").trim();
+
+  return s;
+}
+
+  function escapeHtml(str){
+    return String(str ?? "")
+      .replaceAll("&","&amp;")
+      .replaceAll("<","&lt;")
+      .replaceAll(">","&gt;")
+      .replaceAll('"',"&quot;")
+      .replaceAll("'","&#039;");
+  }
+
+  function pickOne(arr){
+    return arr[Math.floor(Math.random()*arr.length)];
+  }
+
+  function shuffle(arr){
+    const a = arr.slice();
+    for(let i=a.length-1;i>0;i--){
+      const j = Math.floor(Math.random()*(i+1));
+      [a[i],a[j]] = [a[j],a[i]];
+    }
+    return a;
+  }
+
+  function setSchoolColor(grupo){
+    // Si luego quieres: tu mapa real de colores por escuela
+const map = {
+  "Psicoanálisis": "#4E79A7",
+  "Conductismo": "#d69640",
+  "Cognitivo": "#E15759",
+  "Humanista": "#76B7B2",
+  "Sistémico": "#F1CE63",
+  "Constructivista": "#B07AA1",
+  "Integrativo": "#FF9DA7",
+  "Transversal": "#5F7F78"
+};
+
+    const c = map[grupo] || "#D9AA3F";
+    document.documentElement.style.setProperty("--schoolColor", c);
+    document.documentElement.style.setProperty("--panelGlow", `color-mix(in srgb, ${c} 18%, transparent)`);
+  }
+function setRandomDotColor(){
+  const DOT_COLORS = [
+    "#4E79A7", // Psicoanálisis
+    "#d69640", // Conductismo
+    "#E15759", // Cognitivo
+    "#76B7B2", // Humanista
+    "#F1CE63", // Sistémico
+    "#B07AA1", // Constructivista
+    "#FF9DA7", // Integrativo
+    "#5F7F78", // Transversal
+    "#9FB0C3"  // Otros / neutro
+  ];
+  const c = DOT_COLORS[Math.floor(Math.random() * DOT_COLORS.length)];
+  document.documentElement.style.setProperty("--dotColor", c);
+}
+
+  function normalizePhotosJson(json){
+    // Soporta 2 patrones habituales:
+    // A) { models: { "id": "archivo.jpg", ... } }
+    // B) { "models": {...}, ... } o incluso directo { "id": "archivo.jpg" }
+    if(json && typeof json === "object"){
+      if(json.models && typeof json.models === "object") return json.models;
+      // fallback: si viene directo como mapa id->filename
+      const keys = Object.keys(json);
+      const looksLikeMap = keys.length && typeof json[keys[0]] === "string";
+      if(looksLikeMap) return json;
+    }
+    return {};
+  }
+
+
+  async function fetchJson(url){
+    const r = await fetch(url, { cache: "no-store" });
+    if(!r.ok) throw new Error(`HTTP ${r.status} al cargar: ${url}`);
+    return await r.json();
+  }
+
+function extractIdeasFromModel(modelJson){
+  const ideas = modelJson?.ideasPrincipales;
+  if(!ideas || !Array.isArray(ideas)) return [];
+
+  if(ideas.length && typeof ideas[0] === "string"){
+    return ideas.map(s => String(s).trim()).filter(Boolean);
+  }
+
+  if(ideas.length && typeof ideas[0] === "object"){
+    return ideas.map(o => {
+      if(!o) return "";
+      const titulo = String(o.titulo ?? o.nombre ?? "").trim();
+      const cuerpo = String(
+        o.texto ??
+        o.desarrollo ??
+        o.descripcion ??
+        o.detalle ??
+        o.explicacion ??
+        o.idea ??
+        o.contenido ??
+        ""
+      ).trim();
+
+      if(titulo && cuerpo) return `${titulo}: ${cuerpo}`;
+      if(cuerpo) return cuerpo;
+      if(titulo) return titulo;
+      return "";
+    }).filter(Boolean);
+  }
+
+  return [];
+}
+
+function extractProcedimientosFromModel(modelJson){
+  const arr = modelJson?.procedimientos;
+  if(!arr || !Array.isArray(arr)) return [];
+
+  return arr.map(p => {
+    if(!p) return "";
+    const nombre = String(p.nombre ?? p.titulo ?? "").trim();
+    const texto  = String(p.texto ?? p.descripcion ?? p.detalle ?? "").trim();
+
+    // si no hay texto, al menos el nombre
+    if(nombre && texto) return `${nombre}: ${texto}`;
+    if(texto) return texto;
+    if(nombre) return nombre;
+    return "";
+  }).filter(Boolean);
+}
+
+function extractMicrosFromModel(modelJson){
+  const arr = modelJson?.micros;
+  if(!arr || !Array.isArray(arr)) return [];
+
+  return arr.map(m => {
+    if(!m) return "";
+    const nombre = String(m.nombre ?? m.titulo ?? "").trim();
+    const texto  = String(m.texto ?? m.descripcion ?? m.detalle ?? "").trim();
+
+    if(nombre && texto) return `${nombre}: ${texto}`;
+    if(texto) return texto;
+    if(nombre) return nombre;
+    return "";
+  }).filter(Boolean);
+}
+
+
+
+  function setRevealedPanel(model, revealOn){
+    // Panel derecho: en esta primera versión siempre mostramos el modelo,
+    // pero si quieres "modo examen" lo ocultamos hasta responder.
+if(!model){
+  elLabel.textContent = "—";
+  elAuth.textContent = "—";
+  elDesc.textContent = "—";
+  elPhoto.removeAttribute("src");
+  elPhoto.alt = "";
+  return;
+}
+
+
+    const label = model.label || model.modelLabel || model.id || "—";
+    const autores = model.autores || "—";
+
+    elLabel.textContent = revealOn ? label : "¿…?";
+    elAuth.textContent  = revealOn ? autores : "Elige una opción";
+if(revealOn){
+  const d = DESC_BY_MODEL[model.id] || "";
+  elDesc.textContent = d ? d : "—";
+}else{
+  elDesc.textContent = "Responde para ver la descripción";
+}
+
+    const filename = PHOTO_BY_MODEL[model.id] || null;
+    if(revealOn && filename){
+      elPhoto.src = PHOTOS_BASE_URL + filename;
+      elPhoto.alt = label;
+      elPhoto.style.visibility = "visible";
+    }else{
+      elPhoto.removeAttribute("src");
+      elPhoto.alt = "";
+      elPhoto.style.visibility = "hidden";
+    }
+  }
+
+  function setStatus(html, on=true){
+    elStatus.innerHTML = html;
+    elStatus.classList.toggle("is-on", !!on);
+  }
+
+  function lockOptions(){
+    for(const b of elAns.querySelectorAll("button.opt")){
+      b.disabled = true;
+    }
+  }
+function isMobile(){
+  return window.matchMedia && window.matchMedia("(max-width: 900px)").matches;
+}
+
+function openFsPanel(model, isCorrect){
+
+  if(!isMobile()) return;
+  if(!model) return;
+
+  const label = escapeHtml(model.label || model.id || "—");
+  const autores = escapeHtml(model.autores || "—");
+  const desc = escapeHtml(DESC_BY_MODEL[model.id] || "—");
+// texto resultado
+const resultHtml = isCorrect
+  ? `
+    <div class="fsResultRow">
+      <div class="fsResultLeft">
+        <span class="fsResultIcon" aria-hidden="true">✓</span>
+        <div class="fsResultTitle">Correcto</div>
+      </div>
+      <div class="fsResultPill">+1</div>
+    </div>
+    <span class="small">Punto añadido</span>
+  `
+  : `
+    <div class="fsResultRow">
+      <div class="fsResultLeft">
+        <span class="fsResultIcon" aria-hidden="true">×</span>
+        <div class="fsResultTitle">Incorrecto</div>
+      </div>
+      <div class="fsResultPill">-1 vida</div>
+    </div>
+    <span class="small">La respuesta era: <b>${escapeHtml(model.label || model.id || "—")}</b></span>
+  `;
+
+fsResult.className = "fsResult " + (isCorrect ? "ok" : "bad");
+fsResult.innerHTML = resultHtml;
+
+  const filename = PHOTO_BY_MODEL[model.id] || "";
+  const photoUrl = filename ? (PHOTOS_BASE_URL + filename) : "";
+
+  fsBody.innerHTML = `
+    <div class="author" style="margin-bottom:12px;">
+      <img class="photo" alt="${label}" src="${photoUrl}" style="${photoUrl ? "" : "display:none;"}" />
+      <div class="authorText">
+        <div class="authorName">${label}</div>
+        <div class="authorMeta">${autores}</div>
+      </div>
+    </div>
+
+    <div class="modelDesc" style="margin-top:0;">${desc}</div>
+  `;
+
+  fsOverlay.classList.add("is-on");
+  fsOverlay.setAttribute("aria-hidden","false");
+
+document.documentElement.style.overflow = "hidden";
+document.body.style.overflow = "hidden";
+
+/* ✅ SIEMPRE ARRIBA: resetea el scroll del overlay */
+fsBody.scrollTop = 0;
+// por si el navegador aplica el scroll después del repaint:
+requestAnimationFrame(() => { fsBody.scrollTop = 0; });
+
+}
+
+
+function closeFsPanel(){
+  fsOverlay.classList.remove("is-on");
+  fsOverlay.setAttribute("aria-hidden","true");
+  document.documentElement.style.overflow = "";
+  document.body.style.overflow = "";
+}
+function updateHud(){
+  elScore.textContent = score;
+  elRounds.textContent = rounds;
+  elLives.textContent = lives;
+  elStreak.textContent = streak;
+}
+  /* =========================
+     Filtro por escuela
+     ========================= */
+  function populateSchoolFilter(){
+    if(!elSchoolFilter) return;
+
+    // conservar "todas" y reconstruir el resto
+    const keep = `<option value="todas">Todas</option>`;
+
+    const grupos = Array.from(new Set((MODELS_ALL || []).map(m => m.grupo).filter(Boolean)))
+      .sort((a,b)=> a.localeCompare(b, "es"));
+
+    elSchoolFilter.innerHTML = keep + grupos.map(g =>
+      `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`
+    ).join("");
+
+    elSchoolFilter.value = CURRENT_SCHOOL || "todas";
+  }
+
+  function applySchoolFilter(){
+    const v = (CURRENT_SCHOOL || "todas");
+
+    if(v === "todas"){
+      MODELS = MODELS_ALL.slice();
+      ITEMS  = ITEMS_ALL.slice();
+    }else{
+      MODELS = MODELS_ALL.filter(m => m.grupo === v);
+      ITEMS  = ITEMS_ALL.filter(it => it.grupo === v);
+    }
+
+    // si no hay suficiente para 4 opciones, avisamos
+    if(MODELS.length < 4){
+      elIdea.textContent = "No hay suficientes modelos en esta escuela para jugar (mínimo 4).";
+      elAns.innerHTML = "";
+      setStatus(`Selecciona otra escuela o <b>Todas</b>.`, true);
+      setRevealedPanel(null, false);
+      return;
+    }
+
+    if(!ITEMS.length){
+      elIdea.textContent = "No he encontrado ideas/procedimientos/micros en esta escuela.";
+      elAns.innerHTML = "";
+      setStatus(`Selecciona otra escuela o <b>Todas</b>.`, true);
+      setRevealedPanel(null, false);
+      return;
+    }
+
+    resetGame();
+  }
+
+  /* =========================
+     Juego
+     ========================= */
+ function buildQuestion(){
+  if(!ITEMS.length){
+    elIdea.textContent = "No he encontrado ideas/procedimientos/micros en los modelos cargados.";
+    elAns.innerHTML = "";
+    setStatus("Revisa que los JSON tengan <b>ideasPrincipales</b>, <b>procedimientos</b> o <b>micros</b>.", true);
+    setRevealedPanel(null, false);
+    pillSchool.textContent = "—";
+    pillYear.textContent = "—";
+    pillCode.textContent = "—";
+    return;
+  }
+
+  const item = pickOne(ITEMS);
+  const correct = MODELS.find(m => m.id === item.modelId);
+  if(!correct) return buildQuestion();
+
+  const pool = MODELS.filter(m => m.id !== correct.id);
+  const distractors = shuffle(pool).slice(0, 3);
+  const options = shuffle([correct, ...distractors]);
+
+  CURRENT = {
+    kind: item.kind,
+    text: item.text,
+    correctId: correct.id,
+    correctLabel: correct.label,
+    correctAutores: correct.autores,
+    correctGrupo: correct.grupo,
+    correctYear: correct.year,
+    options
+  };
+
+  setSchoolColor(correct.grupo);
+  setRandomDotColor();
+
+  pillYear.textContent = correct.year ? String(correct.year) : "—";
+
+  // pill de tipo
+  const kindLabel = (CURRENT.kind === "idea principal") ? "idea"
+                  : (CURRENT.kind === "procedimiento") ? "procedimiento"
+                  : "micro-intervención";
+  pillCode.textContent = kindLabel;
+
+elIdea.textContent = limpiarAutorFinal(CURRENT.text);
+
+
+  elAns.innerHTML = options.map(m => {
+    const label = escapeHtml(m.label || m.id);
+    const grupo = escapeHtml(m.grupo || "");
+    return `<button class="opt" data-id="${escapeHtml(m.id)}">
+      ${label}<span style="display:block; margin-top:4px; font-weight:700; opacity:.72; font-size:12px;">${grupo}</span>
+    </button>`;
+  }).join("");
+
+  setStatus("", false);
+  setRevealedPanel(correct, false);
+}
+
+
+  function onChoose(id){
+    if(!CURRENT) return;
+
+rounds += 1;
+
+const correct = CURRENT.correctId === id;
+
+
+    lockOptions();
+
+    // marcar
+    for(const b of elAns.querySelectorAll("button.opt")){
+      const bid = b.getAttribute("data-id");
+      if(bid === CURRENT.correctId) b.classList.add("correct");
+      if(bid === id && !correct) b.classList.add("wrong");
+    }
+
+if(correct){
+
+  score += 1;
+  streak += 1;
+
+  if(streak > bestStreak) bestStreak = streak;
+updateHud();
+
+  // cada 5 aciertos → +1 vida (máx)
+  if(streak % 5 === 0 && lives < maxLives){
+    lives += 1;
+    setStatus(`💚 Vida extra.<span class="small">Racha ${streak}</span>`, true);
+  }else{
+    setStatus(`✅ Correcto.<span class="small">Racha ${streak}</span>`, true);
+  }
+
+}else{
+
+lives -= 1;
+streak = 0;
+
+updateHud();
+
+setStatus(`❌ Fallo.<span class="small">Pierdes 1 vida</span>`, true);
+
+if(lives <= 0){
+  gameOver();
+  return;
+}
+
+}
+
+
+// revelar
+const model = MODELS.find(m => m.id === CURRENT.correctId);
+setRevealedPanel(model, true);
+
+// ✅ en móvil: abrir panel derecho a pantalla completa (sin clonar DOM)
+openFsPanel(model, correct);
+
+
+  }
+function gameOver(){
+
+  // guardar récords
+  if(score > bestScore){
+    bestScore = score;
+    localStorage.setItem("tmps_bestScore", bestScore);
+  }
+  if(bestStreak > bestStreakEver){
+    bestStreakEver = bestStreak;
+    localStorage.setItem("tmps_bestStreak", bestStreakEver);
+  }
+
+  elAns.innerHTML = "";
+
+  // headline (más limpio)
+  elIdea.classList.add("is-gameover");
+  elIdea.innerHTML = `
+    <div>Game Over</div>
+    <div class="goSub">
+      Tu récord: <b>${bestScore}</b> · Mejor racha histórica: <b>${bestStreakEver}</b>
+    </div>
+  `;
+
+  // tarjeta de resultado
+  elStatus.classList.add("gameover");
+  setStatus(`
+    <div class="goTop">
+      <div class="goBadge">Fin de partida</div>
+      <div class="goMeta">Vuelve a intentarlo y rompe tu récord</div>
+    </div>
+
+    <div class="goStats">
+      <div class="goStat"><div class="k">Puntos</div><div class="v">${score}</div></div>
+      <div class="goStat"><div class="k">Mejor racha</div><div class="v">${bestStreak}</div></div>
+      <div class="goStat"><div class="k">Récord</div><div class="v">${bestScore}</div></div>
+    </div>
+
+    <div class="goActions">
+      <button class="btn btnSmall" id="btnPlayAgain">Jugar otra vez</button>
+      <button class="btn btnSmall" id="btnCopyResult">Copiar resultado</button>
+    </div>
+
+    <div class="goFine">
+      Tip: Explora los modelos para mejorar tus puntuaciones
+    </div>
+  `, true);
+
+  setRevealedPanel(null, false);
+  closeFsPanel();
+}
+
+
+function resetGame(){
+
+  score = 0;
+  rounds = 0;
+  lives = 3;
+  streak = 0;
+  bestStreak = 0;
+
+  updateHud();
+
+  // limpiar estilos game over
+  elIdea.classList.remove("is-gameover");
+  elStatus.classList.remove("gameover");
+
+  closeFsPanel();
+  buildQuestion();
+}
+
+
+
+  /* =========================
+     Carga inicial
+     ========================= */
+  async function init(){
+    try{
+      elIdea.textContent = "Cargando modelos…";
+setStatus(`Origen: <b>${location.origin}</b> · Href: <b>${location.href}</b>`, true);
+
+
+     const [escuelasIndex, fotosJson] = await Promise.all([
+  fetchJson(ESCUELAS_INDEX),
+  fetchJson(FOTOS_JSON_URL)
+]);
+
+PHOTO_BY_MODEL = normalizePhotosJson(fotosJson);
+
+// 1) escuelasIndex suele ser array de {id,label,file,...}
+const schools = Array.isArray(escuelasIndex) ? escuelasIndex : (escuelasIndex.escuelas || []);
+
+// 2) cargar cada escuela (Core/{entry.file}) y acumular school.modelos[]
+const schoolJsons = await Promise.allSettled(
+  schools
+    .filter(s => s && s.file)
+    .map(s => fetchJson(gh(`Core/${String(s.file).replace(/^\/+/,"")}`)))
+);
+
+const summaries = [];
+for (const res of schoolJsons){
+  if (res.status !== "fulfilled") continue;
+  const school = res.value;
+  const modelos = Array.isArray(school?.modelos) ? school.modelos : [];
+  for (const m of modelos){
+    if (!m?.id || !m?.file) continue;
+    summaries.push({
+      id: m.id,
+      label: m.label || m.nombre || m.id,
+      grupo: m.grupo || school.label || school.id || "",
+      year: m.year ?? "",
+      autores: m.autores || "",
+      file: m.file
+    });
+  }
+}
+
+// 3) MODELS = lista final con url real al JSON del modelo
+MODELS = summaries.map(m => ({
+  ...m,
+  url: gh(`Core/${String(m.file).replace(/^\/+/,"")}`)
+}));
+
+      // ahora cargamos JSON de modelos para extraer ideas
+      elIdea.textContent = `Cargando ideas… (${MODELS.length} modelos)`;
+
+      const modelJsons = await Promise.allSettled(
+        MODELS.map(m => fetchJson(m.url))
+      );
+
+     ITEMS = [];
+
+for(let i=0;i<modelJsons.length;i++){
+  const res = modelJsons[i];
+  if(res.status !== "fulfilled") continue;
+
+  const m = MODELS[i];
+  const mj = res.value;
+if(mj && typeof mj.descripcion === "string"){
+  DESC_BY_MODEL[m.id] = mj.descripcion.trim();
+}
+
+  const ideas = extractIdeasFromModel(mj);
+  const procs = extractProcedimientosFromModel(mj);
+  const micros = extractMicrosFromModel(mj);
+
+  // helper para meter items
+  const pushItems = (kind, arr) => {
+    for(const t of (arr || [])){
+      const clean = String(t).trim();
+      if(clean.length < 8) continue;
+
+      ITEMS.push({
+        kind,
+        modelId: m.id,
+        modelLabel: m.label,
+        grupo: m.grupo,
+        year: m.year,
+        autores: m.autores,
+        text: clean
+      });
+    }
+  };
+
+  pushItems("idea", ideas);
+  pushItems("procedimiento", procs);
+  pushItems("micro", micros);
+}
+
+
+      if(!MODELS.length){
+        elIdea.textContent = "No he podido construir la lista de modelos desde el index.";
+        setStatus("Ajusta MODELS_INDEX_URL y revisa el formato del index.json.", true);
+        return;
+      }
+
+  if(!ITEMS.length){
+  elIdea.textContent = "No he encontrado ideas/procedimientos/micros en los JSON cargados.";
+  setStatus("Verifica que tus modelos tengan <b>ideasPrincipales</b>, <b>procedimientos</b> o <b>micros</b>.", true);
+  return;
+}
+
+      // ✅ guardar pools completos
+      MODELS_ALL = MODELS.slice();
+      ITEMS_ALL  = ITEMS.slice();
+
+      // ✅ poblar selector y aplicar filtro inicial
+      populateSchoolFilter();
+      CURRENT_SCHOOL = (elSchoolFilter?.value || "todas");
+      applySchoolFilter();
+
+    }catch(err){
+      console.error(err);
+      elIdea.textContent = "Error cargando datos.";
+      setStatus(`Fallo: <b>${escapeHtml(err?.message || String(err))}</b><span class="small">Revisa URLs, CORS y rutas.</span>`, true);
+    }
+  }
+
+  // eventos
+ // eventos
+document.addEventListener("click", (e)=>{
+  const b = e.target.closest?.("button.opt");
+  if(!b) return;
+  if(b.disabled) return;
+  onChoose(b.getAttribute("data-id"));
+});
+document.addEventListener("click", async (e)=>{
+  const t = e.target;
+
+  if(t && t.id === "btnPlayAgain"){
+    resetGame();
+    return;
+  }
+
+  if(t && t.id === "btnCopyResult"){
+    const text =
+      `TMPS Quiz — Resultado\n` +
+      `Puntos: ${score}\n` +
+      `Mejor racha (partida): ${bestStreak}\n` +
+      `Récord: ${bestScore}`;
+
+    try{
+      await navigator.clipboard.writeText(text);
+      setStatus(elStatus.innerHTML + `<div class="goFine">✅ Copiado al portapapeles</div>`, true);
+    }catch(err){
+      setStatus(elStatus.innerHTML + `<div class="goFine">⚠️ No he podido copiar (permiso del navegador)</div>`, true);
+    }
+  }
+});
+
+// botón siguiente normal (desktop)
+$("#btnNext").addEventListener("click", ()=>{
+  if(fsOverlay.classList.contains("is-on")) return;
+  buildQuestion();
+
+  /* ✅ SIEMPRE ARRIBA */
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+});
+
+
+$("#btnReset").addEventListener("click", ()=> resetGame());
+
+// botón siguiente del fullscreen (móvil)
+btnNextFs.addEventListener("click", ()=>{
+  closeFsPanel();
+  buildQuestion();
+
+  /* ✅ SIEMPRE ARRIBA (pantalla principal) */
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+});
+
+
+// cerrar overlay
+btnCloseFs.addEventListener("click", ()=> closeFsPanel());
+
+fsOverlay.addEventListener("click", (e)=>{
+  if(e.target === fsOverlay) closeFsPanel();
+});
+
+// ✅ cambio de escuela
+if(elSchoolFilter){
+  elSchoolFilter.addEventListener("change", ()=>{
+    CURRENT_SCHOOL = elSchoolFilter.value || "todas";
+    applySchoolFilter();
+    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  });
+}
+
+init();
+
+
+  </script>
+</body>
+</html>

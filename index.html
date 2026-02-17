@@ -3,1319 +3,1100 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Juego · Adivina el modelo</title>
+  <title>Modelos · Biblioteca (Escuelas → Modelos)</title>
 
-  <!-- Montserrat -->
+  <!-- Montserrat (como el doc) -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+<script>
+const IS_GHPAGES = location.hostname.endsWith('github.io');
+
+const DATA_BASE = IS_GHPAGES
+  ? (location.origin + '/data')
+  : 'https://cdn.jsdelivr.net/gh/josepmunta-design/tmps-data@main/data';
+
+function gh(p){
+  return `${DATA_BASE}/${String(p).replace(/^\/+/, '')}`;
+}
+
+/* ============================
+   ENSURE D3 (fallback CDNs)
+   ============================ */
+async function ensureD3(timeoutMs = 8000){
+  if (window.d3) return true;
+
+  function load(src){
+    return new Promise((ok, fail)=>{
+      const s = document.createElement("script");
+      s.src = src;
+      s.async = true;
+      s.onload = ok;
+      s.onerror = fail;
+      document.head.appendChild(s);
+    });
+  }
+
+  const sources = [
+    "https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js",
+    "https://unpkg.com/d3@7/dist/d3.min.js",
+    "https://d3js.org/d3.v7.min.js"
+  ];
+
+  const started = Date.now();
+
+  for (const src of sources){
+    try{
+      await Promise.race([
+        load(src),
+        new Promise((_, rej)=>setTimeout(()=>rej(new Error("timeout")), timeoutMs))
+      ]);
+      if (window.d3){
+        console.log("D3 OK:", src);
+        return true;
+      }
+    }catch(e){
+      console.warn("D3 FAIL:", src, e?.message || e);
+      if (Date.now() - started > timeoutMs * sources.length) break;
+    }
+  }
+
+  console.error("No se pudo cargar D3 desde ningún CDN.");
+  return false;
+}
+</script>
+
+
+<script defer src="https://cdn.jsdelivr.net/npm/topojson-client@3"></script>
 
   <style>
-    :root{
-      --bg:#0b0f14;
-      --panelA: rgba(19,26,34,0.82);
-      --panelB: rgba(19,26,34,0.62);
-      --text:#e7edf5;
-      --muted:#c7d2e1;
-      --muted2:#9fb0c3;
-      --accent:#D9AA3F;
+    
+:root{
+  --bg:#0b0f14;
+  --panelA: rgba(19,26,34,0.82);
+  --panelB: rgba(19,26,34,0.62);
+  --text:#e7edf5;
+  --muted:#c7d2e1;
+  --muted2:#9fb0c3;
+  --accent:#D9AA3F;
 
-      --edgePad: 14px;
-      --cardW: 980px;
+  --edgePad: 14px;
+  --leftPanelW: 380px;
 
-      --panelGlow: rgba(255,255,255,0.06);
-     --schoolColor: rgba(217,170,63,.85);
---dotColor: #D9AA3F;
-
-    }
+  /* ✅ nuevo: “respiración” entre panel izquierdo y el derecho */
+  --midGap: 14px;
+    /* ===== Mapamundi tokens (solo variables, no afectan layout) ===== */
+  --land: rgba(231,237,245,0.14);
+  --landStroke: rgba(231,237,245,0.18);
+  --graticule: rgba(231,237,245,0.10);
+  --dotStroke: rgba(255,255,255,0.85);
+  --dotGlow: rgba(255,255,255,0.45);
+}
 
     *{ box-sizing:border-box; }
     html,body{
       height:100%;
       margin:0;
+     background:
+    radial-gradient(1400px 900px at 15% 15%, rgba(217,170,63,.12), transparent 55%),
+    radial-gradient(1200px 800px at 85% 35%, rgba(78,121,167,.14), transparent 60%),
+    radial-gradient(900px 600px at 50% 80%, rgba(255,255,255,.04), transparent 65%),
+    linear-gradient(180deg, #0b0f14 0%, #0a0e13 100%);
       color: var(--text);
-      overflow-x:hidden;
-      overflow-y:auto;
+        overflow-x: hidden;
+  overflow-y: auto;
+
       font-family: 'Montserrat', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      background:
-        radial-gradient(1400px 900px at 15% 15%, rgba(217,170,63,.12), transparent 55%),
-        radial-gradient(1200px 800px at 85% 35%, rgba(78,121,167,.14), transparent 60%),
-        radial-gradient(900px 600px at 50% 80%, rgba(255,255,255,.04), transparent 65%),
-        linear-gradient(180deg, #0b0f14 0%, #0a0e13 100%);
     }
 
-    /* blobs (ligeros) */
-    .bg-blobs{
-      position: fixed; inset:0; pointer-events:none; z-index:0;
-      overflow:hidden; filter: blur(70px); opacity:.55;
-      background:
-        radial-gradient(circle at 22% 78%, rgba(118,183,178,.18), rgba(118,183,178,0) 52%),
-        radial-gradient(circle at 72% 86%, rgba(176,122,161,.16), rgba(176,122,161,0) 55%);
-      animation: blobBg 40s ease-in-out infinite;
-    }
-    .bg-blobs::before, .bg-blobs::after{
-      content:""; position:absolute; width:520px; height:520px; border-radius:999px;
-      will-change: transform; mix-blend-mode: screen; opacity:.22;
-    }
-    .bg-blobs::before{
-      left:-120px; top:-140px;
-      background: radial-gradient(circle at 30% 30%, rgba(217,170,63,.95), rgba(217,170,63,0) 62%);
-      animation: blobA 28s ease-in-out infinite;
-    }
-    .bg-blobs::after{
-      right:-160px; top:120px;
-      background: radial-gradient(circle at 35% 35%, rgba(78,121,167,.95), rgba(78,121,167,0) 62%);
-      animation: blobB 34s ease-in-out infinite;
-    }
-    @keyframes blobA{
-      0%{transform:translate3d(0,0,0) scale(1);}
-      35%{transform:translate3d(260px,220px,0) scale(1.08);}
-      70%{transform:translate3d(520px,-40px,0) scale(0.96);}
-      100%{transform:translate3d(0,0,0) scale(1);}
-    }
-    @keyframes blobB{
-      0%{transform:translate3d(0,0,0) scale(1);}
-      30%{transform:translate3d(-260px,260px,0) scale(1.06);}
-      65%{transform:translate3d(-520px,-80px,0) scale(0.94);}
-      100%{transform:translate3d(0,0,0) scale(1);}
-    }
-    @keyframes blobBg{
-      0%{background-position:0% 0%, 0% 0%;}
-      50%{background-position:14% -10%, -10% 12%;}
-      100%{background-position:0% 0%, 0% 0%;}
-    }
-    @media (prefers-reduced-motion: reduce){
-      .bg-blobs, .bg-blobs::before, .bg-blobs::after{ animation:none !important; }
+    /* ===== Layout: lienzo full-screen + paneles flotantes (glass) ===== */
+    .app{
+      position:relative;
+      width:100vw;
+      height:100vh;
     }
 
-.app{
-  position: relative; z-index: 2;
-  min-height: 100vh;
+.panel{
+  position: relative;           /* ✅ para que .panel::before se ancle al panel */
+  overflow: hidden;             /* ✅ recorta el glow dentro del borde redondeado */
+  --panelGlow: rgba(255,255,255,0.06); /* ✅ valor por defecto si no hay modelo */
+
+  background: linear-gradient(180deg, var(--panelA), var(--panelB));
+  border:1px solid rgba(255,255,255,0.10);
+  border-radius:16px;
+  box-shadow:
+    0 18px 50px rgba(0,0,0,0.45),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+  backdrop-filter: blur(12px) saturate(115%);
+  -webkit-backdrop-filter: blur(12px) saturate(115%);
+}
+
+
+
+.panel.left{
+  position:fixed;
+  top: var(--edgePad);
+  left: var(--edgePad);
+  width: var(--leftPanelW);
+  max-width: calc(100vw - (var(--edgePad) * 2));
+  max-height: calc(100vh - (var(--edgePad) * 2));
+  overflow:auto;
+
+  padding: 0 14px 14px 14px;   /* ✅ arriba a 0 */
+  z-index: 20;
+}
+
+
+.panel.right{
+  position: fixed;
+  top: var(--edgePad);
+  left: calc(var(--edgePad) + var(--leftPanelW) + var(--midGap));
+  right: var(--edgePad);
+
+  /* ✅ ocupa todo el alto “usable” */
+  max-height: calc(100vh - (var(--edgePad) * 2));
+  overflow: auto;
+
+  padding: 0;
+  z-index: 20;
+
+  background: linear-gradient(180deg, var(--panelA), var(--panelB));
+  border:1px solid rgba(255,255,255,0.10);
+  border-radius:16px;
+  box-shadow: 0 18px 50px rgba(0,0,0,0.45);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+.panel::before{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius:inherit;
+  pointer-events:none;
+
+  /* ✅ glow con color variable + un segundo glow suave */
+  background:
+    radial-gradient(520px 320px at 88% 12%, var(--panelGlow), transparent 62%),
+    radial-gradient(700px 420px at 18% 85%, rgba(255,255,255,0.05), transparent 65%);
+  opacity:.95;
+  mix-blend-mode: screen;   /* hace que “respire” sin aclarar demasiado */
+animation: panelBreath 5s ease-in-out infinite;
+
+    }
+
+
+
+
+
+
+    /* ===== Títulos / cards (doc) ===== */
+  .title{
+  font-weight: 900;
+  letter-spacing: -0.4px;
+  font-size: 20px;
+  line-height: 1.15;
+  margin: 2px 0 10px 0;
+  color: #ffffff;
+}
+.t-eyebrow{
+  display: block;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  color: rgba(231,237,245,.65);
+  margin-bottom: 2px;
+}
+
+.t-main{
+  display: block;
+  font-size: 22px;
+  font-weight: 900;
+  letter-spacing: -0.5px;
+  color: #ffffff;
+}
+    
+.t-main::before{
+  content:"·";
+  color: rgba(217,170,63,.85);
+  margin-right:6px;
+}
+
+    .subtitle{
+      color:var(--muted);
+      opacity:.85;
+      font-size:12.5px;
+      line-height:1.35;
+      margin-bottom:12px;
+    }
+    /* ===== Línea de recuento de modelos ===== */
+#countLine{
   display:flex;
-
-  /* ✅ clave: en vez de centrar verticalmente, ancla arriba */
-  align-items: flex-start;
-
-  justify-content:center;
-
-  /* un pelín más “seguro” arriba en móvil */
-  padding: max(16px, env(safe-area-inset-top)) 18px 26px;
-}
-@media (max-width: 900px){
-  .app{
-    padding: max(12px, env(safe-area-inset-top)) 12px 18px;
-    align-items: stretch; /* hace que el panel use todo el ancho */
-  }
+  gap:6px;
+  align-items:baseline;
+  flex-wrap:wrap;
 }
 
-    .panel{
-      position: relative;
-      overflow: hidden;
-      width: min(var(--cardW), 100%);
-      border-radius: 18px;
-      background: linear-gradient(180deg, var(--panelA), var(--panelB));
+#countLine .count-n{
+  font-weight:900;
+  font-size:14px;
+  color:#fff;
+}
+
+#countLine .count-txt{
+  font-weight:600;
+  opacity:.75;
+}
+
+#countLine .count-school{
+  font-weight:800;
+  color: var(--schoolColor, #dfe6f1);
+}
+
+    .card{
+      background: rgba(255,255,255,0.05);
       border:1px solid rgba(255,255,255,0.10);
-      box-shadow:
-        0 18px 50px rgba(0,0,0,0.45),
-        inset 0 1px 0 rgba(255,255,255,0.06);
-     backdrop-filter: blur(14px) saturate(125%);
-  -webkit-backdrop-filter: blur(14px) saturate(125%);
+      border-radius:14px;
+      padding:12px;
+      margin:12px 0;
     }
-    /* =========================
-   SCROLLBAR GLASS (premium)
-   ========================= */
-.panel, .modelDesc, .fsBody{
-  scrollbar-width: thin;
-  scrollbar-color: rgba(231,237,245,0.28) rgba(255,255,255,0.06);
-}
+    .row{display:flex; gap:10px; align-items:center; flex-wrap:wrap;}
+    label{font-size:12px;color:var(--muted2);}
 
-.panel::-webkit-scrollbar,
-.modelDesc::-webkit-scrollbar,
-.fsBody::-webkit-scrollbar{
-  width: 10px;
-}
+    select{
+      width: 100%;
+      background: rgba(255,255,255,0.06);
+      border:1px solid rgba(255,255,255,0.12);
+      color: var(--text);
+      border-radius: 12px;
+      padding: 10px 10px;
+      font-weight: 700;
+      outline: none;
+    }
+    select:focus{ border-color: rgba(217,170,63,.35); box-shadow: 0 0 0 4px rgba(217,170,63,.10); }
 
-.panel::-webkit-scrollbar-track,
-.modelDesc::-webkit-scrollbar-track,
-.fsBody::-webkit-scrollbar-track{
-  background: rgba(255,255,255,0.05);
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.06);
-}
+    .modelsList{
+      margin-top: 8px;
+      display:flex;
+      flex-direction:column;
+      gap:6px;
+    }
 
-.panel::-webkit-scrollbar-thumb,
-.modelDesc::-webkit-scrollbar-thumb,
-.fsBody::-webkit-scrollbar-thumb{
-  background: linear-gradient(180deg, rgba(231,237,245,0.28), rgba(231,237,245,0.14));
-  border-radius: 999px;
+    /* Lista clicable (doc) */
+  .mi-item{
+  cursor: pointer;
+  min-height: 78px; 
+  border-radius: 12px;
+  padding: 10px 10px;
   border: 1px solid rgba(255,255,255,0.10);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
+
+  /* 👇 fondo tintado muy sutil por escuela */
+  background:
+    linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--schoolColor) 8%, transparent),
+      rgba(255,255,255,0.04)
+    );
+
+  transition:
+    background .15s ease,
+    border-color .12s ease,
+    transform .12s ease;
+  user-select:none;
+    position: relative;
+
 }
 
-.panel::-webkit-scrollbar-thumb:hover,
-.modelDesc::-webkit-scrollbar-thumb:hover,
-.fsBody::-webkit-scrollbar-thumb:hover{
-  background: linear-gradient(180deg, rgba(231,237,245,0.36), rgba(231,237,245,0.18));
+    .mi-item:hover{
+      background: rgba(255,255,255,0.06);
+      border-color: rgba(255,255,255,0.16);
+      transform: translateY(-1px);
+    }
+   .mi-item.active{
+  border-color: var(--schoolColor, rgba(217,170,63,.45));
+  background: linear-gradient(
+    180deg,
+    rgba(255,255,255,0.06),
+    rgba(255,255,255,0.02)
+  );
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--schoolColor) 28%, transparent),
+    inset 0 1px 0 rgba(255,255,255,0.10);
 }
+/* ===== MARCOS: aspecto claramente distinto ===== */
+.mi-item.is-marco{
 
-    .panel::before{
-      content:"";
-      position:absolute;
-      inset:0;
-      border-radius:inherit;
-      pointer-events:none;
-      background:
-        radial-gradient(520px 320px at 88% 12%, var(--panelGlow), transparent 62%),
-        radial-gradient(700px 420px at 18% 85%, rgba(255,255,255,0.05), transparent 65%);
-      opacity:.95;
-      mix-blend-mode: screen;
-      animation: panelBreath 5s ease-in-out infinite;
-    }
-    @keyframes panelBreath{
-      0%,100%{ background-position: 0% 0%; opacity:.85; }
-      50%{ background-position: 100% 100%; opacity:1; }
-    }
-
-    .wrap{ position: relative; z-index: 1; padding: 18px 18px 16px; }
-
- .hero{
   position: relative;
+  border-style: solid;
+  border-width: 1px;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255,255,255,0.045),
+      rgba(255,255,255,0.02)
+    );
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.10);
+}
+
+
+/* banda vertical izquierda */
+/* sin banda lateral en marcos */
+.mi-item.is-marco::before{
+  display: none;
+}
+
+/* ===== MODELOS: banda vertical izquierda (destacar modelos) ===== */
+.mi-item:not(.is-marco)::before{
+  content:'';
+  position:absolute;
+  left:0;
+  top:0;
+  bottom:0;
+  width:6px;
+  border-radius: 14px 0 0 14px;
+background: color-mix(in srgb, var(--schoolColor) 78%, transparent);
+opacity: .75;
+
+  pointer-events:none;
+}
+
+/* activo: doble “borde” + glow más marcado */
+.mi-item.is-marco.active{
+  border-color: color-mix(in srgb, var(--schoolColor) 55%, rgba(255,255,255,0.18));
+  box-shadow:
+    0 0 0 2px rgba(0,0,0,0.35),
+    0 0 0 4px color-mix(in srgb, var(--schoolColor) 35%, transparent),
+    inset 0 1px 0 rgba(255,255,255,0.12);
+}
+
+/* Etiqueta MARCO minimalista: solo texto */
+.mi-marcoTag{
+
+  position: absolute;
+
+  right: 12px;
+  bottom: 8px;
+
+  padding: 0;              /* sin caja */
+  border: none;           /* sin borde */
+  background: none;       /* sin fondo */
+  box-shadow: none;       /* sin sombra */
+  backdrop-filter: none;
+
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: .6px;
+  text-transform: uppercase;
+
+  color: rgba(231,237,245,0.65);  /* discreto */
+
+  pointer-events: none;
+}
+
+
+
+    .mi-top{display:flex; justify-content:space-between; gap:10px; align-items:flex-start;}
+    .mi-title{font-weight:900; font-size:13px; color:#fff; line-height:1.2;}
+    /* ===== TÍTULO EN MARCOS ===== */
+
+.mi-item.is-marco .mi-title{
+  font-weight: 600;     /* antes: 900 */
+  letter-spacing: 0.03em;
+  opacity: 0.95;
+}
+
+    .mi-year{font-weight:900; font-size:12px; color: rgba(231,237,245,.85);}
+    .mi-sub{opacity:.9; font-size:12px; color:#c6d2e2; margin-top:4px; line-height:1.25;}
+    .pill{
+      display:inline-block;
+      margin-top:6px;
+      padding:2px 8px;
+      border-radius:999px;
+      font-size:11px;
+      background: rgba(255,255,255,0.07);
+      border:1px solid rgba(255,255,255,0.10);
+      color:#dfe6f1;
+    }
+
+    /* ===== Panel derecho: modelPanel (doc) ===== */
+    .model-panel{ padding:0; overflow:hidden; }
+    .modelPanel{
+      padding: 18px 16px;
+      color: #e7edf5;
+      font-size: 13px;
+      line-height: 1.45;
+    }
+
+    .modelPanel .mp-tag{
+      display:inline-block;
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:800;
+      letter-spacing:.3px;
+      margin-bottom:10px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.12);
+    }
+.modelPanel .mp-title{
+  font-size:28px;              /* ⬅️ más presencia */
+  font-weight:800;            /* ⬅️ menos “bloque”, más elegante */
+  line-height:1.05;
+  margin:6px 0 12px;
+  color:#fff;
+
+  letter-spacing:-0.02em;     /* ⬅️ look premium */
+  text-shadow:
+    0 1px 0 rgba(0,0,0,0.35),
+    0 10px 28px rgba(0,0,0,0.35);
+}
+
+    /* ===== DIFERENCIAR VISTA ESCUELA ===== */
+.modelPanel.school-view{
+ 
+  padding-top: 16px;
+}
+
+.modelPanel.school-view .mp-title{
+  display:none; /* en escuela no usamos el mp-title */
+}
+
+.school-header{
+  margin: 4px 0 14px 0;
+}
+
+.school-eyebrow{
+  font-size: 11px;
+  font-weight: 900;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  opacity: .65;
+}
+
+.school-title{
+  font-size: 30px;
+  font-weight: 950;
+  line-height: 1.05;
+  letter-spacing: -0.6px;
+  color: var(--schoolColor, #fff);
+}
+
+    .modelPanel .mp-author{
+      font-size:13px;
+      font-weight:700;
+      color:#cfd9e6;
+      margin-bottom:10px;
+    }
+    .modelPanel .mp-meta{
+      display:flex;
+      flex-wrap:wrap;
+      gap:8px;
+      margin-bottom:14px;
+    }
+    .modelPanel .mp-pill{
+      padding:4px 10px;
+      border-radius:999px;
+      font-size:11px;
+      font-weight:700;
+      background: rgba(255,255,255,0.07);
+      border: 1px solid rgba(255,255,255,0.12);
+      color:#dfe6f1;
+    }
+    .modelPanel .mp-desc{
+      margin-top:6px;
+      font-size:13px;
+      line-height:1.55;
+      color:#e3ebf6;
+      white-space: pre-wrap;
+    }
+    /* En vista de ESCUELA: no respetes saltos del template literal */
+.modelPanel.school-view .mp-desc{
+  white-space: normal;
+}
+
+    .modelPanel .mp-section{
+      margin-top:16px;
+      padding-top:12px;
+      border-top:1px solid rgba(255,255,255,0.10);
+    }
+.modelPanel .mp-section h4{
+  font-weight: 700;
+  letter-spacing: .2px;
+  opacity: .95;
+}
+
+    .mp-list{ margin:0; padding-left:18px; }
+    .mp-list li{ margin: 6px 0; }
+    .mp-code{
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      font-size: 11px;
+      opacity: .9;
+      padding: 2px 6px;
+      border-radius: 8px;
+      border: 1px solid rgba(255,255,255,0.10);
+      background: rgba(255,255,255,0.05);
+      display:inline-block;
+      margin-left:6px;
+        display: none !important;
+    }
+
+    /* Estado inicial (doc) */
+    .modelPanel .mp-hint{
+      position:relative;
+      margin:10px 0 0 0;
+      padding:12px 14px 12px 40px;
+      font-size:13px;
+      line-height:1.35;
+      font-weight:700;
+      color: rgba(231,237,245,.86);
+      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+      border: 1px solid rgba(255,255,255,.10);
+      border-radius:14px;
+      box-shadow: 0 10px 26px rgba(0,0,0,.28);
+      backdrop-filter: blur(8px);
+      -webkit-backdrop-filter: blur(8px);
+      animation: hintIn .35s ease both;
+    }
+    .modelPanel .mp-hint::before{
+      content:"⌖";
+      position:absolute;
+      left:12px;
+      top:50%;
+      transform:translateY(-50%);
+      width:22px;
+      height:22px;
+      display:grid;
+      place-items:center;
+      font-size:14px;
+      font-weight:900;
+      color: var(--accent);
+      background: rgba(217,170,63,.10);
+      border: 1px solid rgba(217,170,63,.22);
+      border-radius:10px;
+      box-shadow: 0 0 0 4px rgba(217,170,63,.06);
+    }
+    @keyframes hintIn{
+      from{ opacity:0; transform: translateY(6px); }
+      to{ opacity:1; transform: translateY(0); }
+    }
+/* ===== Hero de entrada (panel derecho) ===== */
+.modelPanel .mp-hero{
+  position: relative;
+  margin: 4px 0 12px 0;
+  padding: 16px 16px;
   border-radius: 18px;
   border: 1px solid rgba(255,255,255,0.10);
   background:
     radial-gradient(900px 420px at 15% 10%, rgba(255,255,255,0.10), transparent 60%),
-    radial-gradient(700px 340px at 70% 30%, var(--panelGlow), transparent 60%),
+    radial-gradient(700px 340px at 70% 30%, var(--panelGlow, rgba(217,170,63,0.10)), transparent 60%),
     linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.10));
   box-shadow: 0 18px 70px rgba(0,0,0,.45);
-  padding: 18px 18px;
-  overflow:hidden;
-  margin-bottom: 12px;
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  overflow: hidden;
+  animation: heroIn .45s ease both;
 }
-.hero::after{
+
+.modelPanel .mp-hero::after{
   content:"";
   position:absolute;
   inset:-40px;
   pointer-events:none;
-  opacity:.22;
+  opacity:.35;
   background:
     radial-gradient(circle at 12px 12px, rgba(255,255,255,0.10) 1px, transparent 1.6px);
   background-size: 24px 24px;
   transform: rotate(6deg);
 }
 
-/* variante sobria */
-.hero--mini{
-  padding: 16px 16px;
-}
+.modelPanel .mp-hero-eyebrow{
+  display:block;
 
-/* eyebrow mejorado */
-.eyebrow{
-  display:flex;
-  align-items:center;
-  gap:8px;
+  padding: 0;
+  border-radius: 0;
+  background: none;
+  border: none;
+
   font-size: 10.5px;
-  font-weight: 900;
-  letter-spacing: .9px;
-  text-transform: uppercase;
-  color: rgba(231,237,245,0.62);
-  margin-bottom: 10px;
-  position: relative;
-  z-index: 1;
-}
-
-.heroBadge{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  padding: 5px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(0,0,0,0.18);
-}
-
-.heroBadgeDot{
-  width:8px; height:8px; border-radius:999px;
-  background: color-mix(in srgb, var(--schoolColor) 70%, transparent);
-  box-shadow: 0 0 0 6px color-mix(in srgb, var(--schoolColor) 14%, transparent);
-}
-
-.heroSep{
-  opacity:.35;
-}
-
-.heroMeta{
-  opacity:.75;
-}
-
-/* título más “pro” */
-.title{
-  font-size: 24px;
-  font-weight: 950;
-  letter-spacing: -0.7px;
-  line-height: 1.05;
-  margin: 0 0 6px 0;
-  position: relative;
-  z-index: 1;
-}
-.title::before{ content:""; display:none; }
-
-.sub{
-  margin: 0;
-  font-size: 13.5px;
-  line-height: 1.55;
-  color: rgba(227,235,246,0.88);
-  max-width: 72ch;
-  position: relative;
-  z-index: 1;
-}
-
-
-.heroRules{
-  margin-top: 10px;
-  display:flex;
-  flex-wrap: wrap;
-  gap:8px;
-}
-.ruleChip{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.06);
-  color: rgba(231,237,245,0.92);
-  font-size: 11.5px;
-  font-weight: 800;
-}
-.ruleChip b{ color:#fff; font-weight: 950; }
-
-/* panel derecho (mini stats) */
-.heroSide{
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.05);
-  padding: 12px 12px;
-  box-shadow: 0 16px 50px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,0.06);
-}
-.heroSideTitle{
-  font-size: 11px;
-  font-weight: 950;
+  font-weight: 700;
   letter-spacing: .6px;
   text-transform: uppercase;
-  color: rgba(231,237,245,0.65);
-  margin-bottom: 10px;
-}
-.heroStats{
-  display:grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 10px;
-}
-.hStat{
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(0,0,0,0.14);
-  padding: 10px 10px;
-}
-.hStat .k{
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: .7px;
-  text-transform: uppercase;
-  color: rgba(231,237,245,0.60);
-}
-.hStat .v{
-  margin-top: 4px;
-  font-size: 16px;
-  font-weight: 950;
-  color:#fff;
-}
-.heroHint{
-  margin-top: 10px;
-  font-size: 11.5px;
-  line-height: 1.4;
-  color: rgba(231,237,245,0.70);
-}
-.heroHint kbd{
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
-  font-size: 10.5px;
-  padding: 2px 7px;
-  border-radius: 8px;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(0,0,0,0.18);
-  color: rgba(231,237,245,0.92);
+
+  color: rgba(231,237,245,0.58);
+  margin-bottom: 8px;
 }
 
-.topbar{
+.modelPanel .mp-hero-title{
+  font-size: 20px;
+  font-weight: 650;
+  letter-spacing: -0.15px;
+  line-height: 1.25;
+
+  color: rgba(231,237,245,0.92);
+  text-shadow: none;
+}
+
+
+
+.modelPanel .mp-hero-text{
+  font-size: 13.5px;
+  line-height: 1.5;
+  color: rgba(227,235,246,0.92);
+  margin: 0 0 12px 0;
+  max-width: 56ch;
+}
+
+.modelPanel .mp-hero-steps{
+  display:flex;
+  flex-direction: column;
+  gap: 8px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.10);
+}
+
+.modelPanel .mp-step{
+  display:flex;
+  align-items:center;
+  gap: 10px;
+  font-size: 12.5px;
+  font-weight: 800;
+  color: rgba(231,237,245,0.90);
+}
+
+.modelPanel .mp-step-dot{
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+  background: rgba(217,170,63,0.22);
+  border: 1px solid rgba(217,170,63,0.35);
+  box-shadow: 0 0 0 6px rgba(217,170,63,0.06);
+  flex: 0 0 auto;
+}
+
+@keyframes heroIn{
+  from{ opacity:0; transform: translateY(8px); }
+  to{ opacity:1; transform: translateY(0); }
+}
+@keyframes panelBreath{
+  0%,100%{
+    background-position: 0% 0%;
+    opacity: .85;
+  }
+  50%{
+    background-position: 100% 100%;
+    opacity: 1;
+  }
+}
+
+    /* Scrollbar glass (doc) */
+    .panel.left, .panel.right{
+      scrollbar-width: thin;
+      scrollbar-color: rgba(231,237,245,0.28) rgba(255,255,255,0.06);
+    }
+    .panel.left::-webkit-scrollbar, .panel.right::-webkit-scrollbar{ width:10px; }
+    .panel.left::-webkit-scrollbar-track, .panel.right::-webkit-scrollbar-track{
+      background: rgba(255,255,255,0.05);
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.06);
+    }
+    .panel.left::-webkit-scrollbar-thumb, .panel.right::-webkit-scrollbar-thumb{
+      background: linear-gradient(180deg, rgba(231,237,245,0.28), rgba(231,237,245,0.14));
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.10);
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
+    }
+    .panel.left::-webkit-scrollbar-thumb:hover, .panel.right::-webkit-scrollbar-thumb:hover{
+      background: linear-gradient(180deg, rgba(231,237,245,0.36), rgba(231,237,245,0.18));
+    }
+    /* ===== Acordeones (desplegables) ===== */
+.mp-acc{
+  margin-top:12px;
+  border-top:1px solid rgba(255,255,255,0.10);
+  padding-top:12px;
+}
+
+.mp-acc details{
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  border-radius: 14px;
+  margin: 10px 0;
+  overflow:hidden;
+}
+
+.mp-acc summary{
+  list-style: none;
+  cursor: pointer;
+  padding: 12px 14px;
+  font-weight: 700;
+  font-size: 12px;
+  color: #fff;
   display:flex;
   align-items:center;
   justify-content:space-between;
   gap:10px;
-  margin: 0 0 10px 0;
-  flex-wrap: wrap;
-}
-
-/* ✅ fila derecha con botones + selector */
-.controlsRow{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap: wrap;
-}
-
-/* wrapper botones */
-.actions{
-  display:flex;
-  align-items:center;
-  gap:10px;
-  flex-wrap: wrap;
-}
-
-
-
-    .score{
-      display:flex; gap:10px; align-items:center; flex-wrap:wrap;
-      background: rgba(255,255,255,0.05);
-      border: 1px solid rgba(255,255,255,0.10);
-      border-radius: 14px;
-      padding: 10px 12px;
-    }
-    .score .k{ font-size:11px; font-weight:900; letter-spacing:.5px; text-transform:uppercase; color: rgba(231,237,245,.70); }
-    .score .v{ font-size:14px; font-weight:900; color:#fff; }
-.score .dot{
-  width:10px; height:10px; border-radius:999px;
-  background: color-mix(in srgb, var(--dotColor) 70%, transparent);
-  border: 1px solid color-mix(in srgb, var(--dotColor) 90%, transparent);
-  box-shadow: 0 0 0 6px color-mix(in srgb, var(--dotColor) 14%, transparent);
-}
-
-
-    .btn{
-      border: 1px solid rgba(255,255,255,0.14);
-      background: rgba(15,22,32,0.38);
-      color: rgba(231,237,245,0.95);
-      border-radius: 14px;
-      padding: 10px 12px;
-      font-weight: 900;
-      letter-spacing: .2px;
-      cursor:pointer;
-      user-select:none;
-      box-shadow: 0 14px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,0.08);
-      transition: transform .12s ease, background .12s ease, border-color .12s ease, box-shadow .12s ease;
-    }
-    .btn:hover{
-      transform: translateY(-1px);
-      background: rgba(15,22,32,0.62);
-      border-color: rgba(217,170,63,0.35);
-      box-shadow: 0 18px 60px rgba(0,0,0,.55), 0 0 0 6px rgba(217,170,63,.06);
-    }
-    .btn:active{ transform: translateY(0) scale(.98); }
-    .btn:focus-visible{ outline:none; box-shadow: 0 0 0 3px rgba(217,170,63,.22), 0 18px 60px rgba(0,0,0,.55); }
-    /* ✅ Textos botones: desktop = largo, móvil estrecho = corto */
-.tShort{ display:none !important; }
-.tLong{ display:inline !important; }
-
-@media (max-width: 360px){
-  .tLong{ display:none !important; }
-  .tShort{ display:inline !important; }
-}
-
-    /* ✅ Selector escuela (glassy) */
-  /* ✅ Selector escuela — glassy premium */
-.filterBox{
-  position: relative;
-  display:flex;
-  align-items:center;
-  gap:10px;
-
-  padding: 10px 12px;
-  border-radius: 14px;
-
-  border: 1px solid rgba(255,255,255,0.10);
-  background:
-    radial-gradient(600px 120px at 20% 0%, rgba(255,255,255,0.08), transparent 62%),
-    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.14));
-
-  box-shadow:
-    0 18px 60px rgba(0,0,0,.35),
-    inset 0 1px 0 rgba(255,255,255,0.08);
-
-  backdrop-filter: blur(10px) saturate(120%);
-  -webkit-backdrop-filter: blur(10px) saturate(120%);
-  transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease, background .12s ease;
-}
-.filterBox:hover{
-  transform: translateY(-1px);
-  border-color: rgba(255,255,255,0.14);
-  box-shadow:
-    0 22px 70px rgba(0,0,0,.45),
-    0 0 0 6px color-mix(in srgb, var(--schoolColor) 10%, transparent),
-    inset 0 1px 0 rgba(255,255,255,0.10);
-}
-
-.filterLabel{
-  font-size: 11px;
-  font-weight: 850;
-  letter-spacing: .2px;
-  text-transform: none;
-  color: rgba(231,237,245,0.55);
-  white-space: nowrap;
-}
-
-
-/* El select cerrado: esto es lo que queda perfecto */
-select.select{
-  appearance:none;
-  -webkit-appearance:none;
-  -moz-appearance:none;
-
-  min-width: 220px;
-  height: 38px;
-
-  padding: 0 42px 0 12px;
-  border-radius: 12px;
-
-  border: 1px solid rgba(255,255,255,0.14);
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--schoolColor) 9%, rgba(0,0,0,0.18)),
-      rgba(0,0,0,0.22)
-    );
-
-  color: rgba(231,237,245,0.96);
-  font-weight: 950;
-  letter-spacing: .2px;
-
-  cursor: pointer;
-  outline: none;
-
-  box-shadow:
-    inset 0 1px 0 rgba(255,255,255,0.10),
-    0 10px 30px rgba(0,0,0,.22);
-
-  transition: transform .12s ease, border-color .12s ease, box-shadow .12s ease, background .12s ease;
-}
-
-/* Hover “sobrio” */
-select.select:hover{
-  border-color: rgba(255,255,255,0.18);
-  background:
-    linear-gradient(180deg,
-      color-mix(in srgb, var(--schoolColor) 12%, rgba(0,0,0,0.18)),
-      rgba(0,0,0,0.24)
-    );
-}
-
-/* Focus premium */
-select.select:focus-visible{
-  border-color: color-mix(in srgb, var(--schoolColor) 45%, rgba(255,255,255,0.12));
-  box-shadow:
-    0 0 0 3px color-mix(in srgb, var(--schoolColor) 20%, transparent),
-    0 14px 40px rgba(0,0,0,.35),
-    inset 0 1px 0 rgba(255,255,255,0.10);
-}
-
-/* Flecha minimal (SVG) en lugar de ▾ */
-.filterBox::after{
-  content:"";
-  position:absolute;
-  right: 16px;
-  top: 50%;
-  transform: translateY(-50%);
-  width: 14px;
-  height: 14px;
-  pointer-events:none;
-  opacity:.85;
-  background: no-repeat center / 14px 14px
-    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='14' viewBox='0 0 24 24'%3E%3Cpath fill='rgba(231,237,245,0.92)' d='M7 10l5 5l5-5z'/%3E%3C/svg%3E");
-}
-
-/* Intento de mejorar el menú abierto (limitado por navegador) */
-select.select option{
-  background: #0f1620;
-  color: rgba(231,237,245,0.96);
-}
-
-/* En navegadores que respetan, empuja a esquema oscuro */
-select.select{
-  color-scheme: dark;
-}
-
-    .grid{
-      display:grid;
-      grid-template-columns: 1.1fr .9fr;
-      gap: 12px;
-      align-items: stretch;
-    }
- @media (max-width: 900px){
-  .grid{ grid-template-columns: 1fr; }
-
-  /* ✅ En móvil: no mostramos la tarjeta derecha (evita el hueco vacío) */
-  .card.rightCard{ display:none; }
-}
-
-
-.card{
-  border: 1px solid rgba(255,255,255,0.10);
-  background:
-    radial-gradient(700px 220px at 15% 0%, rgba(255,255,255,0.06), transparent 55%),
-    rgba(255,255,255,0.04);
-  border-radius: 18px;
-  padding: 16px 16px;
-  overflow: hidden;
-  box-shadow: 0 18px 60px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,0.06);
-}
-
-/* =========================
-   REVEAL CARD (modelo-style)
-   ========================= */
-
-/* Acento de escuela: esquina superior derecha */
-.card.rightCard{
-  position: relative;
-}
-/* =========================
-   IFRAME: tarjeta de MODELOS embebida
-   ========================= */
-.modelFrame{
-  width: 100%;
-  height: 100%;
-  min-height: 520px;
-  border: 0;
-  display: block;
-  background: transparent;
-}
-
-/* En móvil no se ve rightCard igual, pero por si acaso */
-@media (max-width: 900px){
-  .modelFrame{ min-height: 60vh; }
-}
-
-/* Iframe dentro del fullscreen */
-.fsBody{
-  padding: 0 !important; /* para que el iframe encaje perfecto */
-}
-.fsIframe{
-  width: 100%;
-  height: 100%;
-  min-height: 65vh;
-  border: 0;
-  display: block;
-  background: transparent;
-}
-
-.card.rightCard::after{
-  content:"";
-  position:absolute;
-  top:-48px;
-  right:-48px;
-  width: 180px;
-  height: 180px;
-  border-radius: 999px;
-  pointer-events:none;
-
-  background: radial-gradient(
-    circle at 35% 35%,
-    color-mix(in srgb, var(--schoolColor) 55%, transparent),
-    transparent 62%
-  );
-
-  filter: blur(1px);
-  opacity: .95;
-  mix-blend-mode: screen;
-}
-
-/* Badge de escuela (como en Modelos) */
-.schoolTag{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-
-  padding: 6px 10px;
-  border-radius: 999px;
-
-  font-size: 11px;
-  font-weight: 950;
-  letter-spacing: .6px;
-  text-transform: uppercase;
-
-  color: color-mix(in srgb, var(--schoolColor) 85%, white 15%);
-  border: 1px solid color-mix(in srgb, var(--schoolColor) 40%, rgba(255,255,255,0.12));
-  background: color-mix(in srgb, var(--schoolColor) 12%, rgba(0,0,0,0.18));
-
-  box-shadow:
-    0 10px 26px rgba(0,0,0,.18),
-    0 0 0 6px color-mix(in srgb, var(--schoolColor) 10%, transparent),
-    inset 0 1px 0 rgba(255,255,255,0.08);
-
-  white-space: nowrap;
-}
-
-.schoolTagDot{
-  width:8px; height:8px; border-radius:999px;
-  background: color-mix(in srgb, var(--schoolColor) 75%, transparent);
-  box-shadow: 0 0 0 6px color-mix(in srgb, var(--schoolColor) 16%, transparent);
-}
-
-/* ✅ SOLO la tarjeta derecha: que distribuya verticalmente y deje crecer la descripción */
-.card.rightCard{
-  display:flex;
-  flex-direction: column;
-  min-height: 0; /* clave para que el scroll interno funcione bien */
-}
-
-
-    .ideaText{
-      font-size: 16px;
-      line-height: 1.55;
-      color: rgba(231,237,245,0.95);
-      white-space: pre-wrap;
-    }
-    .metaRow{
-      margin-top: 10px;
-      display:flex;
-      gap:8px;
-      flex-wrap: wrap;
-      align-items:center;
-    }
-    .pill{
-      display:inline-block;
-      padding: 4px 10px;
-      border-radius: 999px;
-      font-size: 11px;
-      font-weight: 800;
-      background: rgba(255,255,255,0.07);
-      border: 1px solid rgba(255,255,255,0.12);
-      color:#dfe6f1;
-    }
-
-    .answers{
-      display:grid;
-      grid-template-columns: 1fr;
-      gap: 10px;
-      margin-top: 12px;
-    }
-
-  .opt{
-  text-align:left;
-  padding: 12px 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.10);
-
-  background:
-    radial-gradient(700px 220px at 12% 0%, rgba(255,255,255,0.06), transparent 55%),
-    linear-gradient(
-      180deg,
-      color-mix(in srgb, var(--schoolColor) 9%, rgba(0,0,0,0.12)),
-      rgba(255,255,255,0.04)
-    );
-
-  color:#fff;
-  font-weight: 900;
-  cursor:pointer;
   user-select:none;
-  position:relative;
-
-  box-shadow:
-    0 14px 40px rgba(0,0,0,.22),
-    inset 0 1px 0 rgba(255,255,255,0.06);
-
-  transition:
-    transform .12s ease,
-    border-color .12s ease,
-    background .12s ease,
-    box-shadow .12s ease,
-    filter .12s ease;
 }
 
-    .opt:hover{
-      transform: translateY(-1px);
-      border-color: rgba(255,255,255,0.16);
-      background: rgba(255,255,255,0.06);
-    }
-    .opt[disabled]{ opacity: .62; cursor: default; transform:none; }
-    .opt.correct{
-      border-color: color-mix(in srgb, #7CFFB2 45%, rgba(255,255,255,0.20));
-      box-shadow: 0 0 0 3px rgba(124,255,178,.10), inset 0 1px 0 rgba(255,255,255,0.10);
-    }
-    .opt.wrong{
-      border-color: color-mix(in srgb, #ff6b6b 45%, rgba(255,255,255,0.20));
-      box-shadow: 0 0 0 3px rgba(255,107,107,.08), inset 0 1px 0 rgba(255,255,255,0.10);
-    }
+.mp-acc summary::-webkit-details-marker{ display:none; }
 
-    .rightTop{
-      display:flex;
-      align-items:center;
-      justify-content:space-between;
-      gap:10px;
-      flex-wrap:wrap;
-      margin-bottom: 8px;
-    }
-
-    .author{
-      display:flex;
-      align-items:center;
-      gap:10px;
-      min-width:0;
-    }
-    .photo{
-      width:56px; height:56px; border-radius:999px;
-      object-fit:cover;
-      border: 1px solid rgba(255,255,255,0.18);
-      background: rgba(255,255,255,0.06);
-      box-shadow: 0 6px 18px rgba(0,0,0,0.35), inset 0 1px 0 rgba(255,255,255,0.08);
-      flex: 0 0 auto;
-    }
-    .authorText{ min-width:0; }
-    .authorName{
-      font-size: 13px;
-      font-weight: 900;
-      line-height:1.2;
-      color:#fff;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 42ch;
-    }
-    .authorMeta{
-      font-size: 12px;
-      font-weight: 700;
-      color: rgba(231,237,245,0.75);
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-      max-width: 42ch;
-    }
-
-    .status{
-      margin-top: 10px;
-      padding: 10px 12px;
-      border-radius: 14px;
-      border: 1px solid rgba(255,255,255,0.10);
-      background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
-      color: rgba(231,237,245,.90);
-      font-weight: 800;
-      line-height: 1.35;
-      display:none;
-    }
-    .status.is-on{ display:block; }
-    .status .small{ display:block; margin-top: 4px; font-weight:700; opacity:.75; }
-    
-    /* =========================
-   GAME OVER (estética)
-   ========================= */
-.ideaText.is-gameover{
-  font-size: 22px;
-  font-weight: 950;
-  letter-spacing: -0.7px;
-  line-height: 1.05;
+.mp-acc .sumRight{
+  display:flex;
+  align-items:center;
+  gap:10px;
 }
-.ideaText.is-gameover .goSub{
-  margin-top: 8px;
-  font-size: 13.5px;
-  font-weight: 750;
-  line-height: 1.45;
-  color: rgba(231,237,245,0.78);
-}
-.ideaText.is-gameover .goSub b{ color:#fff; font-weight: 950; }
 
-.status.gameover{
-  margin-top: 12px;
-  padding: 16px 16px;
-  border-radius: 18px;
+.mp-acc .sumCount{
+  font-size: 11px;
+  font-weight: 800;
+  color: rgba(231,237,245,.80);
+  padding: 3px 8px;
+  border-radius: 999px;
   border: 1px solid rgba(255,255,255,0.12);
-  background:
-    radial-gradient(900px 180px at 20% 0%, rgba(255,255,255,0.08), transparent 60%),
-    linear-gradient(180deg, rgba(255,255,255,0.07), rgba(0,0,0,0.10));
-  box-shadow:
-    0 18px 70px rgba(0,0,0,.45),
-    inset 0 1px 0 rgba(255,255,255,0.08);
+  background: rgba(0,0,0,0.16);
 }
 
-.goTop{
+.mp-acc .chev{
+  width: 22px; height: 22px;
+  display:grid; place-items:center;
+  border-radius: 10px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(255,255,255,0.04);
+  color: rgba(231,237,245,.85);
+  transition: transform .15s ease;
+}
+
+.mp-acc details[open] > summary .chev{ transform: rotate(180deg); }
+
+.mp-acc .body{
+  padding: 0 14px 12px 14px;
+  color:#e3ebf6;
+  white-space: normal;   /* ✅ evita huecos por indentación */
+  line-height: 1.55;
+}
+
+
+.mp-acc .body .mp-list{ margin-top: 8px; }
+
+.mp-acc .body .mp-section{ /* neutraliza el estilo anterior si lo usabas */
+  margin-top: 0;
+  padding-top: 0;
+  border-top: none;
+}
+/* ===== Sub-acordeones (procedimientos/micros) ===== */
+.mp-sub details{
+  border: 1px solid rgba(255,255,255,0.10);
+  background: rgba(0,0,0,0.12);
+  border-radius: 12px;
+  margin: 8px 0;
+  overflow: hidden;
+}
+
+.mp-sub summary{
+  list-style:none;
+  cursor:pointer;
+  padding: 10px 12px;
+  font-weight: 800;
+  font-size: 12px;
+  color: rgba(255,255,255,0.95);
   display:flex;
   align-items:flex-start;
   justify-content:space-between;
   gap:10px;
-  flex-wrap:wrap;
+  user-select:none;
 }
-.goBadge{
-  display:inline-flex;
-  align-items:center;
+
+.mp-sub summary::-webkit-details-marker{ display:none; }
+
+.mp-sub .subLeft{
+  display:flex;
   gap:8px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(0,0,0,0.18);
-  font-size: 11px;
-  font-weight: 950;
-  letter-spacing: .6px;
-  text-transform: uppercase;
-  color: rgba(231,237,245,0.90);
-}
-.goMeta{
-  font-size: 12px;
-  font-weight: 750;
-  color: rgba(231,237,245,0.70);
-}
-
-.goStats{
-  margin-top: 12px;
-  display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: 10px;
-}
-@media (max-width: 520px){
-  .goStats{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-}
-
-.goStat{
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(0,0,0,0.14);
-  padding: 12px 12px;
-}
-.goStat .k{
-  font-size: 10px;
-  font-weight: 900;
-  letter-spacing: .7px;
-  text-transform: uppercase;
-  color: rgba(231,237,245,0.60);
-}
-.goStat .v{
-  margin-top: 4px;
-  font-size: 18px;
-  font-weight: 950;
-  color:#fff;
-}
-
-.goActions{
-  margin-top: 14px;
-  display:flex;
-  gap:10px;
-  flex-wrap:wrap;
-}
-.btn.btnSmall{
-  padding: 9px 12px;
-  border-radius: 14px;
-  font-size: 12px;
-  font-weight: 950;
-}
-
-.goFine{
-  margin-top: 12px;
-  font-size: 12px;
-  line-height: 1.45;
-  color: rgba(231,237,245,0.68);
-}
-
-.modelDesc{
-  margin-top: 10px;
-  padding: 12px 12px;
-  border-radius: 14px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(255,255,255,0.04);
-  color: rgba(231,237,245,0.92);
-  font-size: 13px;
-  line-height: 1.55;
-  white-space: pre-wrap;
-
-  /* ✅ ocupa todo el espacio sobrante de la tarjeta derecha */
-  flex: 1 1 auto;
-  min-height: 0;
-
-  /* ✅ si aún así es muy larga, scroll interno */
-  overflow: auto;
-}
-
-
-    .fine{
-      margin-top: 12px;
-      opacity: .70;
-      font-size: 12px;
-      line-height: 1.45;
-    }
-    /* =========================
-   TARJETA MODELO (look "Modelos")
-   ========================= */
-.modelCard{
-  position: relative;
-  border-radius: 18px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background:
-    radial-gradient(900px 420px at 15% 10%, rgba(255,255,255,0.10), transparent 60%),
-    radial-gradient(700px 340px at 70% 30%, color-mix(in srgb, var(--schoolColor) 14%, transparent), transparent 60%),
-    linear-gradient(180deg, rgba(255,255,255,0.06), rgba(0,0,0,0.10));
-  box-shadow:
-    0 18px 60px rgba(0,0,0,.28),
-    inset 0 1px 0 rgba(255,255,255,0.06);
-  overflow: hidden;
-}
-
-/* ✅ toque de color esquina superior derecha (como en Modelos) */
-.modelCard::after{
-  content:"";
-  position:absolute;
-  right:-120px;
-  top:-120px;
-  width: 320px;
-  height: 320px;
-  border-radius: 999px;
-  background: radial-gradient(circle at 35% 35%,
-    color-mix(in srgb, var(--schoolColor) 55%, transparent),
-    transparent 68%
-  );
-  opacity: .55;
-  pointer-events:none;
-  mix-blend-mode: screen;
-}
-
-/* capa de brillo fino */
-.modelCard::before{
-  content:"";
-  position:absolute;
-  inset:0;
-  border-radius:inherit;
-  pointer-events:none;
-  background:
-    radial-gradient(520px 260px at 88% 12%, rgba(255,255,255,0.07), transparent 62%),
-    radial-gradient(620px 320px at 18% 85%, rgba(255,255,255,0.05), transparent 65%);
-  opacity:.9;
-}
-
-/* contenido encima de las capas */
-.modelCard > *{ position: relative; z-index: 1; }
-
-.modelCardTop{
-  display:flex;
-  align-items:center;
-  justify-content: space-between;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.schoolPill{
-  display:inline-flex;
-  align-items:center;
-  gap:8px;
-  padding: 6px 10px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--schoolColor) 42%, rgba(255,255,255,0.10));
-  background: color-mix(in srgb, var(--schoolColor) 14%, rgba(0,0,0,0.22));
-  color: color-mix(in srgb, var(--schoolColor) 86%, #ffffff 14%);
-  font-size: 11px;
-  font-weight: 950;
-  letter-spacing: .7px;
-  text-transform: uppercase;
-  box-shadow:
-    0 12px 34px rgba(0,0,0,.28),
-    inset 0 1px 0 rgba(255,255,255,0.08);
-}
-
-.schoolPillDot{
-  width:8px; height:8px; border-radius:999px;
-  background: color-mix(in srgb, var(--schoolColor) 75%, transparent);
-  box-shadow: 0 0 0 6px color-mix(in srgb, var(--schoolColor) 16%, transparent);
-}
-
-.modelTitle{
-  margin: 0 0 6px 0;
-  font-size: 18px;
-  font-weight: 950;
-  letter-spacing: -0.4px;
-  line-height: 1.1;
-  color: #fff;
-}
-
-.modelMetaLine{
-  margin: 0;
-  font-size: 12.5px;
-  font-weight: 750;
-  color: rgba(231,237,245,0.78);
-}
-
-    /* =========================
-   FULLSCREEN móvil (panel derecho)
-   ========================= */
-.fsOverlay{
-  position: fixed;
-  inset: 0;
-  z-index: 9999;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 14px;
-  background: rgba(0,0,0,0.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-.fsOverlay.is-on{ display:flex; }
-
-.fsSheet{
-  width: min(980px, 100%);
-  height: min(92vh, 92dvh);
-  border-radius: 20px;
-  overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: linear-gradient(180deg, var(--panelA), var(--panelB));
-  box-shadow: 0 30px 90px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.06);
-  display:flex;
-  flex-direction: column;
-}
-
-.fsTop{
-  padding: 12px 12px;
-  display:flex;
-  align-items:center;
-  justify-content: space-between;
-  gap:10px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.04);
-}
-.fsTitle{
-  font-weight: 900;
-  font-size: 13px;
-  color: rgba(231,237,245,0.9);
-}
-.fsClose{ padding: 9px 12px; border-radius: 14px; }
-
-.fsBody{
-  padding: 14px 14px;
-  overflow: auto;
-  min-height: 0;
-}
-/* Card interior dentro del overlay móvil (mismo look que rightCard) */
-.fsCard{
-  position: relative;
-  border: 1px solid rgba(255,255,255,0.10);
-  border-radius: 18px;
-  background:
-    radial-gradient(700px 220px at 15% 0%, rgba(255,255,255,0.06), transparent 55%),
-    rgba(255,255,255,0.04);
-  box-shadow: 0 18px 60px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,0.06);
-  overflow: hidden;
-  padding: 14px 14px;
-}
-
-.fsCard::after{
-  content:"";
-  position:absolute;
-  top:-48px;
-  right:-48px;
-  width: 180px;
-  height: 180px;
-  border-radius: 999px;
-  pointer-events:none;
-  background: radial-gradient(
-    circle at 35% 35%,
-    color-mix(in srgb, var(--schoolColor) 55%, transparent),
-    transparent 62%
-  );
-  opacity: .95;
-  mix-blend-mode: screen;
-}
-
-.fsBottom{
-  padding: 12px 12px;
-  border-top: 1px solid rgba(255,255,255,0.08);
-  background: rgba(255,255,255,0.04);
-  display:flex;
-  justify-content:flex-end;
-}
-
-/* Solo tiene sentido en móvil */
-@media (min-width: 901px){
-  .fsOverlay{ display:none !important; }
-}
-/* Resultado (fullscreen) */
-.fsResult{
-  margin: 12px 12px 0 12px;
-  padding: 12px 12px;
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background:
-    radial-gradient(600px 120px at 20% 0%, rgba(255,255,255,0.08), transparent 60%),
-    linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
-  color: rgba(231,237,245,.96);
-  line-height: 1.25;
-  box-shadow: 0 14px 40px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,0.06);
-}
-
-/* layout interno */
-.fsResultRow{
-  display:flex;
-  align-items:center;
-  justify-content:space-between;
-  gap:10px;
-}
-.fsResultLeft{
-  display:flex;
-  align-items:center;
-  gap:10px;
+  align-items:flex-start;
   min-width:0;
 }
-.fsResultIcon{
-  width:28px; height:28px;
-  border-radius:999px;
-  display:grid;
-  place-items:center;
-  flex: 0 0 auto;
-  border: 1px solid rgba(255,255,255,0.14);
-  background: rgba(0,0,0,0.18);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
-}
-.fsResultTitle{
-  font-weight: 950;
-  letter-spacing: -0.2px;
-  color:#fff;
-  white-space: nowrap;
-  overflow:hidden;
-  text-overflow: ellipsis;
-}
-.fsResultPill{
-  padding: 6px 10px;
-  border-radius: 999px;
-  font-weight: 950;
-  font-size: 12px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(0,0,0,0.18);
-  color: rgba(231,237,245,0.95);
-  box-shadow: inset 0 1px 0 rgba(255,255,255,0.08);
-}
-.fsResult .small{
-  display:block;
-  margin-top: 6px;
-  font-weight: 750;
-  opacity: .78;
-  font-size: 12px;
-  line-height: 1.35;
+
+.mp-sub .subTitle{
+  font-weight: 600;
+  line-height: 1.2;
 }
 
-/* estados */
-.fsResult.ok{
-  border-color: color-mix(in srgb, #7CFFB2 38%, rgba(255,255,255,0.10));
-  box-shadow:
-    0 14px 40px rgba(0,0,0,.35),
-    0 0 0 4px rgba(124,255,178,.07),
-    inset 0 1px 0 rgba(255,255,255,0.06);
-}
-.fsResult.ok .fsResultIcon{
-  border-color: rgba(124,255,178,.40);
-  background: color-mix(in srgb, rgba(124,255,178,.18) 60%, rgba(0,0,0,0.18));
-}
-.fsResult.ok .fsResultPill{
-  border-color: rgba(124,255,178,.35);
-  background: rgba(124,255,178,.10);
+.mp-sub .subRight{
+  display:flex;
+  gap:8px;
+  align-items:center;
+  flex-shrink:0;
 }
 
-.fsResult.bad{
-  border-color: color-mix(in srgb, #ff6b6b 38%, rgba(255,255,255,0.10));
-  box-shadow:
-    0 14px 40px rgba(0,0,0,.35),
-    0 0 0 4px rgba(255,107,107,.06),
-    inset 0 1px 0 rgba(255,255,255,0.06);
-}
-.fsResult.bad .fsResultIcon{
-  border-color: rgba(255,107,107,.40);
-  background: color-mix(in srgb, rgba(255,107,107,.16) 60%, rgba(0,0,0,0.18));
-}
-.fsResult.bad .fsResultPill{
-  border-color: rgba(255,107,107,.35);
-  background: rgba(255,107,107,.08);
+.mp-sub .subBody{
+  padding: 0 12px 10px 12px;
+  color: rgba(227,235,246,0.92);
+  white-space: pre-wrap;
+  line-height: 1.55;
+  font-size: 13px;
 }
 
-/* Ocultar Rondas (texto + número) */
-#roundsLabel,
-#rounds{
+.mp-sub details[open] .chev{ transform: rotate(180deg); }
+/* =========================
+   Oculta el header/menu de Teachable
+   ========================= */
+
+header,
+.site-header,
+.header,
+.navbar,
+#header{
   display: none !important;
 }
-/* =========================
-   MÓVIL — ocultar tarjeta derecha SIEMPRE
-   (evita el recuadro vacío)
+
+/* Por si Teachable mete padding-top por header fijo */
+body{
+  padding-top: 0 !important;
+}
+/* ===== Selector de escuelas (glass premium) ===== */
+select{
+  width: 100%;
+  appearance: none;
+  -webkit-appearance: none;
+  -moz-appearance: none;
+
+  background:
+    linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04)),
+    radial-gradient(120px 60px at 90% 50%, rgba(217,170,63,.18), transparent 60%);
+  
+  border: 1px solid rgba(255,255,255,0.14);
+  color: #ffffff;
+
+  border-radius: 14px;
+  padding: 12px 42px 12px 14px;
+
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 800;
+  letter-spacing: .2px;
+
+  outline: none;
+  cursor: pointer;
+
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.10),
+    0 10px 26px rgba(0,0,0,0.35);
+
+  transition:
+    border-color .15s ease,
+    box-shadow .15s ease,
+    background .15s ease;
+}
+
+/* Hover */
+select:hover{
+  border-color: rgba(255,255,255,0.22);
+}
+
+/* Focus */
+select:focus{
+  border-color: rgba(217,170,63,.55);
+  box-shadow:
+    inset 0 1px 0 rgba(255,255,255,0.12),
+    0 0 0 4px rgba(217,170,63,.15),
+    0 12px 30px rgba(0,0,0,.45);
+}
+
+/* Flecha custom */
+select{
+  background-image:
+    linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.04)),
+    radial-gradient(120px 60px at 90% 50%, rgba(217,170,63,.18), transparent 60%),
+    url("data:image/svg+xml;utf8,\
+<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none'>\
+<path d='M7 10l5 5 5-5' stroke='white' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'/>\
+</svg>");
+  background-repeat: no-repeat;
+  background-position:
+    0 0,
+    0 0,
+    right 14px center;
+  background-size:
+    cover,
+    cover,
+    16px;
+}
+label{
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .4px;
+  text-transform: uppercase;
+  color: rgba(231,237,245,.75);
+}
+/* Intento máximo de estilado del desplegable nativo */
+select option{
+  background-color: #11161d;
+  color: #e7edf5;
+  font-weight: 700;
+}
+
+select option:checked{
+  background-color: #1e2632;
+  color: #ffffff;
+}
+   /* =========================
+   Fondo activo “semántico” (diagrama de nodos)
    ========================= */
-@media (max-width: 900px){
-  .grid > .card.rightCard{
-    display: none !important;
-  }
+body::before{
+  animation: none;
 }
-    /* ✅ MÓVIL: score arriba y debajo una sola fila: Siguiente + Reset + Selector */
-@media (max-width: 900px){
-
-  /* score arriba */
-  .topbar{ align-items: stretch; }
-  .score{
-    flex: 0 0 100%;
-    width: 100%;
-  }
-
-  /* ✅ controles: UNA SOLA LÍNEA */
-  .controlsRow{
-    flex: 0 0 100%;
-    width: 100%;
-    justify-content: flex-end;
-    flex-wrap: nowrap;          /* clave */
-    gap: 8px;
-  }
-  .actions{
-    display:flex;
-    align-items:center;
-    gap: 8px;
-    flex-wrap: nowrap;          /* clave */
-  }
-
-  /* ocultar label */
-  .filterLabel{ display:none !important; }
-
-  /* ✅ botones compactos */
-  .btn.btnTight{
-    padding: 8px 10px;
-    border-radius: 12px;
-    font-size: 12.5px;
-    letter-spacing: 0;
-    box-shadow: 0 10px 26px rgba(0,0,0,.28), inset 0 1px 0 rgba(255,255,255,0.08);
-  }
 
 
-
-
-  /* selector compacto */
-  .filterBox{
-    padding: 7px 9px;
-    border-radius: 12px;
-    gap: 0;
-    flex: 0 1 auto;
-  }
-  select.select{
-    height: 34px;
-    min-width: 0;               /* clave */
-    width: clamp(110px, 30vw, 160px);
-    padding: 0 34px 0 10px;
-    font-size: 12.5px;
-    font-weight: 950;
-    text-overflow: ellipsis;
-    overflow: hidden;
-    white-space: nowrap;
-  }
+@keyframes bgDrift{
+  from{ background-position: 0 0; }
+  to{ background-position: -520px 260px; }
 }
 
 
 
-
-/* ✅ ultra-ultra: aún más apretado */
-@media (max-width: 320px){
-  .btn.btnTight{
-    padding: 7px 9px;
-    font-size: 12px;
-  }
-  select.select{
-    width: clamp(95px, 28vw, 140px);
-    padding: 0 32px 0 9px;
-  }
-  .controlsRow, .actions{ gap: 6px; }
+/* Asegura que tu app quede por encima de before/after */
+.app{ position: relative; z-index: 2; }
+ 
+body::after{
+  content:"";
+  position:fixed;
+  inset:0;
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='1'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='.015'/></svg>");
+  pointer-events:none;
+  z-index:1;
 }
 /* =========================
-   MICRO-RITUAL DE ENTRADA (pro)
+   FABs · navegación (abajo izquierda)
    ========================= */
+/* =========================
+   FAB · navegación (speed dial)
+   ========================= */
+.nav-speed{
+  position: fixed;
+  right: calc(var(--edgePad, 14px) + 6px);
+  bottom: calc(var(--edgePad, 14px) + 6px);
+  z-index: 999999;
+
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+}
+
+/* asegura que el botón principal siempre quede clicable */
+.nav-fab-main{
+  position: relative;
+  z-index: 2;
+}
+.nav-menu{
+  position: relative;
+  z-index: 1;
+}
+
+
+/* Menú (los accesos) */
+.nav-menu{
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  margin-bottom: 10px;              /* separa del botón principal */
+  pointer-events: none;             /* cerrado = no clicable */
+  opacity: 0;
+  transform: translateY(10px) scale(.98);
+  filter: blur(1px);
+  transition: opacity .16s ease, transform .16s ease, filter .16s ease;
+}
+
+.nav-speed.open .nav-menu{
+  pointer-events: auto;
+  opacity: 1;
+  transform: translateY(0) scale(1);
+  filter: blur(0);
+}
+
+/* Micro-anim de cada item al abrir */
+.nav-menu .nav-fab{
+  opacity: 0;
+  transform: translateY(6px);
+  transition: opacity .16s ease, transform .16s ease;
+}
+.nav-speed.open .nav-menu .nav-fab{
+  opacity: 1;
+  transform: translateY(0);
+}
+
+/* Botón principal: rota el + al abrir */
+.nav-fab-main svg{
+  transition: transform .18s ease;
+}
+.nav-speed.open .nav-fab-main svg{
+  transform: rotate(45deg);
+}
+
+
+
+.nav-fab{
+  width: 46px;
+  height: 46px;
+  border-radius: 999px;
+
+  display: grid;
+  place-items: center;
+
+  background: rgba(15,22,32,0.62);
+  border: 1px solid rgba(255,255,255,0.14);
+  backdrop-filter: blur(2px);
+  -webkit-backdrop-filter: blur(2px);
+  box-shadow: 0 16px 50px rgba(0,0,0,.45);
+
+  color: #e7edf5;
+  text-decoration: none;
+
+  cursor: pointer;
+  user-select: none;
+  transition: transform .12s ease, background .12s ease, border-color .12s ease, box-shadow .12s ease;
+}
+
+.nav-fab:hover{
+  transform: translateY(-1px);
+  background: rgba(15,22,32,0.78);
+  border-color: rgba(217,170,63,0.35);
+  box-shadow: 0 18px 60px rgba(0,0,0,.55), 0 0 0 6px rgba(217,170,63,.06);
+}
+
+.nav-fab:active{
+  transform: translateY(0px) scale(0.98);
+}
+
+.nav-fab svg{
+  width: 22px;
+  height: 22px;
+  display: block;
+  opacity: .95;
+}
+
+.nav-fab:focus-visible{
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(217,170,63,.22), 0 18px 60px rgba(0,0,0,.55);
+}
+    /* Botón principal: más transparente */
+.nav-fab-main{
+background: rgba(15,22,32,0.32);
+
+  border-color: rgba(255,255,255,0.10);
+}
+
+/* Hover: sigue visible pero sin volverse opaco */
+.nav-fab-main:hover{
+  background: rgba(15,22,32,0.55);
+  box-shadow:
+    0 14px 40px rgba(0,0,0,.35),
+    0 0 0 4px rgba(217,170,63,.04);
+}
+
+/* ===== Entrada suave al cargar ===== */
 body:not(.loaded) .panel{
   opacity: 0;
   transform: translateY(8px);
@@ -1323,951 +1104,4041 @@ body:not(.loaded) .panel{
 body.loaded .panel{
   opacity: 1;
   transform: translateY(0);
+  transition: opacity .35s ease, transform .35s ease;
+}
+body.loaded .panel.right{
+  transition-delay: .08s;
+}
+/* =========================
+   Micro-ritual de entrada
+   ========================= */
+body:not(.loaded) .panel{
+  opacity: 0;
+  transform: translateY(8px);
+}
+
+body.loaded .panel{
+  opacity: 1;
+  transform: translateY(0);
   transition: opacity .38s ease, transform .38s ease;
 }
 
+/* izquierda primero */
+body.loaded .panel.left{
+  transition-delay: 0ms;
+}
 
-</style>
+/* derecha 100ms después */
+body.loaded .panel.right{
+  transition-delay: 100ms;
+}
+
+/* hero: un pelín después del panel derecho */
+body:not(.loaded) .mp-hero{
+  opacity: 0;
+  transform: translateY(6px);
+}
+body.loaded .mp-hero{
+  opacity: 1;
+  transform: translateY(0);
+  transition: opacity .42s ease, transform .42s ease;
+  transition-delay: 160ms;
+}
+/* =========================
+   Jerarquía tipográfica del hero
+   ========================= */
+.modelPanel{
+  padding-top: 22px; /* más aire arriba */
+}
+
+
+
+.modelPanel .mp-hero-text{
+  font-size: 13.5px;
+  opacity: .92;
+}
+
+.modelPanel .mp-hint{
+  font-size: 12.5px;
+  opacity: .72; /* claramente secundario */
+}
+html, body{ position: relative; }
+.app{ position: relative; z-index: 2; }
+/* =========================
+   Fondo: blobs de color muy blur (sutiles)
+   ========================= */
+.bg-blobs{
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;             /* detrás de .app (que ya está en z-index:2) */
+  overflow: hidden;
+  filter: blur(70px);
+  opacity: .55;           /* controla “cuánto se intuyen” */
+}
+
+/* cada blob */
+.bg-blobs::before,
+.bg-blobs::after{
+  content:"";
+  position: absolute;
+  width: 520px;
+  height: 520px;
+  border-radius: 999px;
+  will-change: transform;
+  mix-blend-mode: screen; /* se integra bien con fondos oscuros */
+  opacity: .22;           /* opacidad del blob individual */
+}
+
+/* blob 1 (accent) */
+.bg-blobs::before{
+  left: -120px;
+  top: -140px;
+  background: radial-gradient(circle at 30% 30%,
+    rgba(217,170,63,.95),
+    rgba(217,170,63,0) 62%);
+  animation: blobA 28s ease-in-out infinite;
+}
+
+/* blob 2 (azul) */
+.bg-blobs::after{
+  right: -160px;
+  top: 120px;
+  background: radial-gradient(circle at 35% 35%,
+    rgba(78,121,167,.95),
+    rgba(78,121,167,0) 62%);
+  animation: blobB 34s ease-in-out infinite;
+}
+
+/* añadimos 2 blobs más con un pseudo-layer extra usando background múltiple */
+.bg-blobs{
+  background:
+    radial-gradient(circle at 22% 78%, rgba(118,183,178,.18), rgba(118,183,178,0) 52%),
+    radial-gradient(circle at 72% 86%, rgba(176,122,161,.16), rgba(176,122,161,0) 55%);
+  animation: blobBg 40s ease-in-out infinite;
+}
+
+@keyframes blobA{
+  0%   { transform: translate3d(0,0,0) scale(1); }
+  35%  { transform: translate3d(260px, 220px,0) scale(1.08); }
+  70%  { transform: translate3d(520px, -40px,0) scale(0.96); }
+  100% { transform: translate3d(0,0,0) scale(1); }
+}
+
+@keyframes blobB{
+  0%   { transform: translate3d(0,0,0) scale(1); }
+  30%  { transform: translate3d(-260px, 260px,0) scale(1.06); }
+  65%  { transform: translate3d(-520px, -80px,0) scale(0.94); }
+  100% { transform: translate3d(0,0,0) scale(1); }
+}
+
+@keyframes blobBg{
+  0%   { background-position: 0% 0%, 0% 0%; }
+  50%  { background-position: 14% -10%, -10% 12%; }
+  100% { background-position: 0% 0%, 0% 0%; }
+}
+
+/* Respeta accesibilidad */
+@media (prefers-reduced-motion: reduce){
+  .bg-blobs, .bg-blobs::before, .bg-blobs::after{
+    animation: none !important;
+  }
+}
+#modelInfo.school-view .mp-hint{
+  margin-top: 12px; /* en vez de auto */
+}
+.mi-item.active .mi-title{
+  color: var(--schoolColor, #fff);
+}
+/* =========================
+   MINI MAP como FONDO (derecha)
+   (render limpio: blur solo en land, graticule sin blur)
+   ========================= */
+
+.modelPanel{
+  position: relative;     /* clave para el absoluto */
+  overflow: hidden;       /* recorta el mapa dentro del panel */
+}
+
+/* contenedor del “fondo-mapa” */
+.mp-mapbg{
+  position: absolute;
+  right: -36px;
+  top: 0px;
+  width: 560px;
+  height: 340px;
+
+  pointer-events: none;
+  z-index: 0;
+
+  opacity: .55;
+
+  /* ✅ clip real + estabilidad de composición */
+  border-radius: 18px;
+  overflow: hidden;
+
+  will-change: transform;
+  transform: translateZ(0);
+  isolation: isolate;
+}
+
+/* el SVG ocupa el contenedor */
+.mp-mapbg svg{
+  width: 100%;
+  height: 100%;
+  display: block;
+
+  /* ✅ evita artefactos de composición */
+  transform: translateZ(0);
+  backface-visibility: hidden;
+}
+
+/* ===== TIERRA (continentes) =====
+   ✅ blur SOLO aquí para que el mapa sea reconocible sin “bandas” raras
+*/
+.mp-mapbg .land{
+  filter: blur(0.85px);
+  opacity: 1;
+  transform: translateZ(0);
+}
+
+.mp-mapbg .land path{
+  fill: rgba(231,237,245,0.18);
+  stroke: rgba(231,237,245,0.22);
+  stroke-width: 1.1;
+
+  /* ✅ mejora bordes en algunos renders */
+  shape-rendering: geometricPrecision;
+}
+
+/* ===== GRATICULE (rejilla) =====
+   ✅ SIN blur + muy suave para que no “ensucie” arriba
+*/
+.mp-mapbg .graticule{
+  filter: none !important;
+  opacity: .38; /* baja la presencia global */
+}
+
+.mp-mapbg .graticule path{
+  fill: none;
+  stroke: rgba(231,237,245,0.10);
+  stroke-width: 1;
+
+  /* ✅ hace que la rejilla no se convierta en “barras” */
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 2.2 6.5;
+}
+
+/* (Opcional) punto */
+.mp-mapbg .mini-dot{
+  stroke: rgba(255,255,255,0.85);
+  stroke-width: 2;
+}
+
+/* ===== Fade real a transparente: MASK (tu versión) ===== */
+.mp-mapbg{
+  -webkit-mask-image:
+    linear-gradient(to left,
+      rgba(0,0,0,1) 0%,
+      rgba(0,0,0,1) 68%,
+      rgba(0,0,0,0) 97%
+    ),
+    linear-gradient(to bottom,
+      rgba(0,0,0,1) 0%,
+      rgba(0,0,0,1) 50%,
+      rgba(0,0,0,0.35) 62%,
+      rgba(0,0,0,0) 78%
+    );
+  -webkit-mask-composite: source-in;
+
+  mask-image:
+    linear-gradient(to left,
+      rgba(0,0,0,1) 0%,
+      rgba(0,0,0,1) 68%,
+      rgba(0,0,0,0) 97%
+    ),
+    linear-gradient(to bottom,
+      rgba(0,0,0,1) 0%,
+      rgba(0,0,0,1) 50%,
+      rgba(0,0,0,0.35) 62%,
+      rgba(0,0,0,0) 78%
+    );
+  mask-composite: intersect;
+}
+
+
+/* velo MUY suave */
+.mp-mapbg::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background: radial-gradient(240px 160px at 70% 45%, rgba(255,255,255,0.05), transparent 65%);
+}
+
+/* sube el contenido del panel por encima del mapa */
+.modelPanel > :not(.mp-mapbg){
+  position: relative;
+  z-index: 1;
+}
+
+/* ===== Mini-mapa: reducir presencia en smartphone ===== */
+@media (max-width: 768px){
+  .mp-mapbg{
+    opacity: .20;        /* antes .55 */
+    right: -178px;        /* ✅ más a la derecha en móvil (ajusta -60/-90 si quieres) */
+  }
+
+  .mp-mapbg .land{
+    filter: blur(1.1px);
+  }
+}
+.mp-ideas{
+  display:flex;
+  flex-direction:column;
+  gap:10px;
+}
+
+.mp-idea{
+  border:1px solid rgba(255,255,255,.08);
+  border-radius:12px;
+  background:rgba(255,255,255,.02);
+  overflow:hidden;
+}
+
+.mp-idea-title{
+  cursor:pointer;
+  padding:12px 14px;
+  font-weight:600;
+  list-style:none;
+}
+
+.mp-idea-title::-webkit-details-marker{ display:none; }
+
+.mp-idea-body{
+  padding:0 14px 14px 14px;
+  opacity:.88;
+  line-height:1.55;
+  white-space:pre-wrap;
+}
+    /* =========================
+   IDEAS PRINCIPALES – ACORDEÓN INTERNO
+   ========================= */
+
+.mp-ideas{
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+/* contenedor de cada idea */
+.mp-idea{
+  border: 1px solid rgba(255,255,255,.08);
+  border-radius: 10px;
+  background: rgba(255,255,255,.02);
+  overflow: hidden;
+}
+
+/* título (summary) */
+.mp-idea-title{
+  position: relative;
+  cursor: pointer;
+  padding: 12px 36px 12px 14px;
+  font-size: 14px;
+  font-weight: 500;
+  list-style: none;
+}
+
+/* quitamos marcador nativo */
+.mp-idea-title::-webkit-details-marker{
+  display: none;
+}
+
+/* ▶ TRIÁNGULO (cerrado) */
+.mp-idea-title::after{
+  content: '▸';
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 14px;
+  opacity: .55;
+  transition: transform .18s ease, opacity .18s ease;
+}
+
+/* ▼ TRIÁNGULO (abierto) */
+.mp-idea[open] > .mp-idea-title::after{
+  transform: translateY(-50%) rotate(90deg);
+  opacity: .85;
+}
+
+/* cuerpo desplegable */
+.mp-idea-body{
+  padding: 0 14px 14px 14px;
+  font-size: 14px;
+  line-height: 1.55;
+  opacity: .85;
+  white-space: pre-wrap;
+}
+    /* ✅ Sticky: selector de escuela fijo dentro del panel izquierdo (todas) */
+.panel.left .schoolSticky{
+  position: sticky;
+  top: 0;
+
+  z-index: 30;
+
+  background: linear-gradient(180deg, var(--panelA), var(--panelB));
+  backdrop-filter: blur(12px) saturate(115%);
+  -webkit-backdrop-filter: blur(12px) saturate(115%);
+
+  border-bottom: 1px solid rgba(255,255,255,0.10);
+  box-shadow: 0 10px 26px rgba(0,0,0,0.28);
+}
+
+/* ✅ Sticky del selector: arriba del todo (todas, y en móvil también) */
+.panel.left .schoolSticky{
+  position: sticky;
+  top: 0;
+  z-index: 30;
+  margin-top: 0 !important;
+}
+/* ✅ Cuando el selector está realmente “pegado” arriba: esquinas superiores rectas */
+@media (max-width: 980px){
+
+  /* Cuando está en posición sticky activa */
+  .panel.left:has(.schoolSticky:is(:sticky, :not(:has(*)))) .schoolSticky{
+    border-top-left-radius: 0;
+    border-top-right-radius: 0;
+
+    /* mantenemos abajo redondeado */
+    border-bottom-left-radius: 14px;
+    border-bottom-right-radius: 14px;
+  }
+}
+
+/* ✅ Aire solo para el título */
+.panel.left .title{
+  padding-top: 14px;
+  margin-top: 0;
+}
+
+/* ================== MÓVIL ================== */
+@media (max-width: 980px){
+
+  :root{
+    --leftH: 300px;     /* alto fijo panel izquierdo */
+    --rightGap: 20px;   /* separación entre paneles */
+  }
+
+  .panel.left{
+    width: calc(100vw - (var(--edgePad) * 2));
+    height: var(--leftH);      /* ✅ fijo: sin movimiento */
+    transition: none;
+  }
+
+  .panel.right{
+    width: calc(100vw - (var(--edgePad) * 2));
+    left: var(--edgePad);
+    right: var(--edgePad);
+
+    /* ✅ fijo: sin readP */
+    top: calc(var(--edgePad) + var(--leftH) + var(--rightGap));
+    max-height: calc(100vh - (var(--edgePad) * 2) - (var(--leftH) + var(--rightGap)));
+
+    transition: none;
+
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-y;
+  }
+
+  /* ✅ Sticky compacto en móvil: solo el select */
+  .panel.left .schoolSticky{
+    padding: 10px 12px;          /* menos alto */
+  }
+
+  /* Oculta “ESCUELA” (label) */
+  .panel.left .schoolSticky label{
+    display: none !important;
+  }
+
+  /* Oculta el contador “X modelos en…” */
+  .panel.left .schoolSticky #countLine{
+    display: none !important;
+  }
+
+  /* Reduce el margen de la fila del label si sigue ocupando sitio */
+  .panel.left .schoolSticky .row{
+    margin-bottom: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Ajuste fino del select para que se vea “barra” */
+  .panel.left .schoolSticky select{
+    width: 100%;
+    height: 40px;                /* compacto */
+  }
+
+  /* ✅ Mantén contain (pero quita will-change de animación) */
+  .panel.left, .panel.right{
+    contain: layout paint;
+  }
+}
+
+/* ✅ Bordes rectos cuando el sticky está pegado (tu clase .stuck) */
+.panel.left .schoolSticky.stuck{
+  border-top-left-radius: 0;
+  border-top-right-radius: 0;
+
+  border-bottom-left-radius: 14px;
+  border-bottom-right-radius: 14px;
+}
+/* ===== Botón FULL (arriba derecha dentro del panel de info) ===== */
+.panel.right{ position: fixed; }  /* ya lo es, pero lo dejamos explícito */
+
+
+.mp-fullBtn{
+  position: fixed;        /* ✅ fijo en pantalla */
+  top: 12px;
+  right: 12px;
+  z-index: 1000000;       /* ✅ por encima de todo */
+
+  width: 34px;
+  height: 34px;
+  border-radius: 12px;
+
+  display: grid;
+  place-items: center;
+
+  background: rgba(0,0,0,0.22);
+  border: 1px solid rgba(255,255,255,0.14);
+  color: rgba(231,237,245,0.95);
+
+  cursor: pointer;
+  user-select: none;
+
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+/* ===== Ocultar botón FULL mientras está la landing ===== */
+body.landing-on .mp-fullBtn{
+  opacity: 0;
+  pointer-events: none;
+  transform: translateY(-6px);
+}
+
+
+.mp-fullBtn:hover{
+  border-color: rgba(255,255,255,0.22);
+}
+
+.mp-fullBtn svg{
+  width: 18px;
+  height: 18px;
+  display: block;
+}
+
+/* ===== Estado FULLSCREEN del panel derecho ===== */
+body.infoFull .panel.right{
+  position: fixed;
+  top: var(--edgePad);
+  left: var(--edgePad);
+  right: var(--edgePad);
+  bottom: var(--edgePad);
+
+  max-height: none;
+  overflow: auto;
+
+  z-index: 999999;
+}
+
+/* Oculta el panel superior mientras estás en fullscreen */
+body.infoFull .panel.left{
+  display: none !important;
+}
+    
+    
+/* ===== Sticky header del modelo (overlay bonito + solo cuando toca) ===== */
+#stickyModelHeader{
+  position: sticky;
+  top: 0;
+  z-index: 999998;
+
+  /* ✅ no ocupa, no empuja, no mueve scroll */
+  height: 0;
+  margin: 0;
+  padding: 0;
+  overflow: visible;
+}
+
+/* capa visual */
+#stickyModelHeader .smh-overlay{
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+
+  /* apagado por defecto */
+  opacity: 0;
+  transform: translateY(-6px);
+  pointer-events: none;
+
+  /* ✅ fondo y estética (lo que te falta ahora) */
+  background: linear-gradient(
+    180deg,
+    color-mix(in srgb, var(--schoolColor,#1e2a38) 18%, #131a22),
+    rgba(19,26,34,0.70)
+  );
+
+  border-bottom: none;
+
+backdrop-filter: blur(38px) saturate(145%) brightness(1.08);
+-webkit-backdrop-filter: blur(38px) saturate(145%) brightness(1.08);
+
+
+  box-shadow:
+    0 8px 26px rgba(0,0,0,0.35),
+    0 0 0 1px color-mix(in srgb, var(--schoolColor,#fff) 15%, transparent);
+
+  transition: opacity .18s ease, transform .18s ease, box-shadow .18s ease;
+  will-change: opacity, transform;
+}
+#stickyModelHeader .smh-overlay::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(255,255,255,0.06),
+      transparent 0%
+    );
+
+  mix-blend-mode: screen;
+}
+
+#stickyModelHeader.is-on .smh-overlay{
+  opacity: 1;
+  transform: translateY(0);
+  pointer-events: auto;
+
+  box-shadow:
+    0 12px 32px rgba(0,0,0,0.45),
+    0 0 0 1px color-mix(in srgb, var(--schoolColor,#fff) 25%, transparent);
+}
+
+#stickyModelHeader .smh-dot{
+
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+
+  background: color-mix(in srgb, var(--schoolColor,#D9AA3F) 70%, transparent);
+  border: 1px solid color-mix(in srgb, var(--schoolColor,#D9AA3F) 90%, transparent);
+
+  box-shadow:
+    0 0 0 5px color-mix(in srgb, var(--schoolColor,#D9AA3F) 18%, transparent),
+    0 0 12px color-mix(in srgb, var(--schoolColor,#D9AA3F) 35%, transparent);
+
+  flex: 0 0 auto;
+
+  /* reposo */
+  animation: none;
+
+  transform-origin: center;
+  will-change: transform, box-shadow, opacity;
+}
+#stickyModelHeader.is-on .smh-dot{
+  animation: dotBreath 3.6s ease-in-out infinite;
+}
+
+/* TEXTO */
+#stickyModelHeader .smh-title{
+  font-weight: 950;
+  letter-spacing: -0.4px;
+  line-height: 1.1;
+  font-size: 14px;
+  color: var(--schoolColor,#fff);
+  text-shadow: 0 0 8px color-mix(in srgb, var(--schoolColor,#fff) 25%, transparent);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#stickyModelHeader .smh-author{
+  margin-top: 2px;
+  font-size: 12px;
+  font-weight: 700;
+  color: rgba(231,237,245,0.88);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+#stickyModelHeader .smh-text{
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+@keyframes dotBreath{
+  0%,100%{
+    transform: scale(1);
+    box-shadow:
+      0 0 0 4px color-mix(in srgb, var(--schoolColor,#D9AA3F) 14%, transparent),
+      0 0 10px color-mix(in srgb, var(--schoolColor,#D9AA3F) 28%, transparent);
+    opacity: .85;
+  }
+
+  50%{
+    transform: scale(1.08); /* 👈 solo +8% */
+    box-shadow:
+      0 0 0 6px color-mix(in srgb, var(--schoolColor,#D9AA3F) 22%, transparent),
+      0 0 14px color-mix(in srgb, var(--schoolColor,#D9AA3F) 40%, transparent);
+    opacity: .95;
+  }
+}
+
+/* ===== Foto autor ===== */
+
+.mp-author-wrap{
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.mp-author-photo{
+  width: 54px;
+  height: 54px;
+  border-radius: 999px;
+  object-fit: cover;
+
+  border: 1px solid rgba(255,255,255,0.18);
+
+  box-shadow:
+    0 6px 18px rgba(0,0,0,0.35),
+    inset 0 1px 0 rgba(255,255,255,0.08);
+
+  background: rgba(255,255,255,0.06);
+}
+
+.mp-author-text{
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.mp-author-name{
+  font-size: 13px;
+  font-weight: 800;
+  color: #fff;
+  line-height: 1.2;
+}
+
+.mp-author-meta{
+  font-size: 12px;
+  font-weight: 600;
+  color: rgba(231,237,245,0.75);
+}
+.mp-author-photo{ display:block; }
+
+    .author-photo img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover; /* Esto evita que la foto se deforme */
+    display: block;    /* Evita espacios fantasmas debajo de la imagen */
+}
+/* ===== SECUENCIAS (FLOW) — versión más visual ===== */
+.mp-flow{
+  --seqCol: color-mix(in srgb, var(--schoolColor,#D9AA3F) 60%, rgba(255,255,255,0.20));
+
+  /* ✅ geometría del carril */
+  --dot: 26px;          /* tamaño del número */
+  --col: 28px;          /* ancho columna del dot (grid) */
+  --railX: calc((var(--col) - 3px) / 2);  /* centro del carril para línea de 3px */
+
+  position: relative;
+  display: flex;
+  flex-direction: column;
+gap: 0;
+
+  padding-left: 40px;
+padding-right: 14px;   /* ✅ aire a la derecha */
+
+  margin-top: 12px;
+  --dotRight: calc((var(--col) + var(--dot)) / 2); /* borde derecho del círculo */
+
+}
+
+
+/* línea vertical principal (más visible + glow) */
+.mp-flow::before{
+  content:"";
+  position:absolute;
+ left: var(--railX);
+
+  top: 8px;
+  bottom: 8px;
+  width: 3px;
+  background: linear-gradient(
+    180deg,
+    rgba(255,255,255,0.06),
+    rgba(255,255,255,0.13),
+    rgba(255,255,255,0.06)
+  );
+  border-radius: 99px;
+  box-shadow:
+    0 0 0 1px rgba(255,255,255,0.06),
+    0 0 18px rgba(0,0,0,0.35);
+}
+
+/* cada item */
+.mp-flowItem{
+  position: relative;
+  display: grid;
+  grid-template-columns: 28px 1fr;  /* columna dot + columna caja */
+  column-gap: 14px;
+  align-items: center;             /* ✅ centra verticalmente el dot */
+
+    }
+
+
+/* segmento de línea por item (da sensación de “tramo” conectando) */
+.mp-flowItem::after{
+  content:"";
+  position:absolute;
+  left: var(--railX);
+  top: calc(50% + (var(--dot) / 2));
+  bottom: -34px;
+  width: 3px;
+  background: rgba(255,255,255,0.10);
+  border-radius: 99px;
+  opacity: 0.9;
+}
+
+.mp-flowItem:last-child::after{ display:none; }
+
+/* nodo numerado (más protagonista + glow con color escuela) */
+.mp-flowDot{
+  position: relative;
+  left: 0;
+  top: 0;
+margin-left: calc((var(--col) - var(--dot)) / 2);
+
+  width: var(--dot);
+height: var(--dot);
+
+
+  border-radius: 999px;
+  display:flex;
+  align-items:center;
+  justify-content:center;
+  font-weight: 900;
+  font-size: 12px;
+
+  background: radial-gradient(circle at 30% 25%, rgba(255,255,255,0.20), rgba(255,255,255,0.08));
+  border: 1px solid rgba(255,255,255,0.14);
+  color: rgba(231,237,245,0.96);
+
+  box-shadow:
+    0 0 0 3px color-mix(in srgb, var(--seqCol) 20%, transparent),
+    0 12px 26px rgba(0,0,0,0.35),
+    0 0 18px color-mix(in srgb, var(--seqCol) 30%, transparent);
+}
+
+/* conector horizontal dot → box + flecha (esto es lo que faltaba) */
+.mp-flowItem::before{
+  content:"";
+  position:absolute;
+  left: calc(var(--dotRight) + 0px);
+
+  top: 50%;
+  transform: translateY(-50%);
+  width: calc(1px + 14px); /* col-gap (14) + un poco de aire (14) */
+  height: 2px;
+  background: linear-gradient(90deg, rgba(255,255,255,0.18), rgba(255,255,255,0.06));
+  border-radius: 99px;
+}
+
+
+.mp-flowBox::before{
+  content:"";
+  position:absolute;
+  left: -8px;
+ top: 50%;
+transform: translateY(-50%);
+  width: 0;
+  height: 0;
+  border-top: 6px solid transparent;
+  border-bottom: 6px solid transparent;
+  border-left: 8px solid rgba(255,255,255,0.16);
+  filter: drop-shadow(0 6px 12px rgba(0,0,0,0.25));
+  opacity: 0.9;
+}
+
+/* caja (más “card” + acento de color) */
+.mp-flowBox{
+  position: relative;
+  grid-column: 2;
+
+  flex: 1;
+
+  border: 1px solid rgba(255,255,255,0.12);
+  border-radius: 18px;
+
+  background: linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03));
+  box-shadow:
+    0 18px 46px rgba(0,0,0,0.26),
+    0 0 0 1px rgba(0,0,0,0.14) inset;
+
+  padding: 12px 14px;
+
+  overflow: hidden;
+}
+
+/* barra/acento lateral con color de escuela */
+.mp-flowBox::after{
+  content:"";
+  position:absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: 3px;
+  background: linear-gradient(180deg, var(--seqCol), rgba(255,255,255,0.06));
+  opacity: 0.95;
+}
+
+/* hover (si quieres que “se sienta” interactivo) */
+.mp-flowBox:hover{
+  transform: translateY(-1px);
+  box-shadow:
+    0 22px 56px rgba(0,0,0,0.32),
+    0 0 0 1px rgba(0,0,0,0.14) inset,
+    0 0 22px color-mix(in srgb, var(--seqCol) 22%, transparent);
+}
+
+/* texto principal */
+.mp-flowAction{
+  font-weight: 650;
+  font-size: 12px;
+  line-height: 1.35;
+  color: rgba(231,237,245,0.94);
+}
+
+/* descripción de secuencia */
+.mp-seqDesc{
+  margin: 6px 14px 14px 40px;   /* ⬅️ alinea con el flow */
+  opacity: .86;
+  line-height: 1.45;
+
+  padding: 10px 14px;
+  border-radius: 14px;
+
+  background: linear-gradient(
+    180deg,
+    rgba(255,255,255,0.045),
+    rgba(255,255,255,0.02)
+  );
+
+  border: 1px solid rgba(255,255,255,0.08);
+}
+
+
+
+/* ===== Pasos desplegables dentro de Secuencias ===== */
+.mp-step{
+  /* mantiene estética de mp-flowBox */
+}
+
+.mp-stepSum{
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.mp-stepSum::-webkit-details-marker{ display:none; }
+
+.mp-stepChev{
+  opacity: .75;
+  font-weight: 900;
+  transform: translateY(-1px);
+  transition: transform .18s ease, opacity .18s ease;
+}
+
+.mp-step[open] .mp-stepChev{
+  transform: rotate(180deg) translateY(1px);
+  opacity: .95;
+}
+
+.mp-stepBody{
+  margin-top: 10px;
+  padding-top: 10px;
+  border-top: 1px solid rgba(255,255,255,0.08);
+  line-height: 1.45;
+  font-size: 12px;
+  font-weight: 500;             /* ✅ lectura más cómoda */
+  opacity: .88;
+}
+
+ @media (max-width: 980px){
+
+  /* El paso completo pasa a columna */
+  .mp-step{
+    display: flex;
+    flex-direction: column;
+  }
+
+  /* Summary en columna */
+  .mp-stepSum{
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    width: 100%;
+    padding-right: 34px;
+  }
+
+  /* Título ocupa todo */
+  .mp-flowAction{
+    width: 100%;
+    display: block;
+  }
+
+  /* Cuerpo SIEMPRE debajo */
+  .mp-stepBody{
+    width: 100%;
+    display: block;
+    margin-top: 10px;
+    padding-top: 8px;
+  }
+
+  /* Chevron fijo derecha */
+  .mp-stepChev{
+    position: absolute;
+    right: 12px;
+    top: 12px;
+    transform: none;
+  }
+
+  /* Rotación al abrir */
+  .mp-step[open] .mp-stepChev{
+    transform: rotate(180deg);
+  }
+
+}
+
+
+
+/* Si no hay explicación, quita sensación de desplegable */
+.mp-step[data-noexp="1"] .mp-stepChev{
+  opacity: .25;
+}
+.mp-step[data-noexp="1"]{
+  cursor: default;
+}
+.mp-step[data-noexp="1"] .mp-stepSum{
+  cursor: default;
+}
+
+    /* ================== LANDING (pantalla inicio) ================== */
+.landingOverlay{
+    --accent: rgba(217,170,63,1);
+
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647; /* por encima de Teachable */
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 18px;
+
+  background: rgba(10,14,20,0.78);
+
+
+
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+
+}
+@media (max-width: 760px){
+  .landingOverlay{
+    background: rgba(10,14,20,0.62);
+  }
+}
+
+
+.landingOverlay.is-on{ display: flex; }
+.landingCard{
+  width: min(900px, 100%);
+
+  /* Fallbacks sólidos para móviles */
+  max-height: 80vh;
+  max-height: 90svh;            /* iOS moderno */
+  max-height: min(80vh, 90dvh); /* viewport real móvil */
+
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch; /* ✅ iOS: scroll fluido */
+  overscroll-behavior: contain;      /* ✅ evita “rebote” raro */
+
+  border-radius: 28px;
+  padding: 48px 56px;
+
+  background: rgba(255,255,255,0.06);
+  border: 1px solid rgba(255,255,255,0.12);
+
+  /* ✅ más ligero: el blur grande en un elemento que scrollea mata el rendimiento */
+backdrop-filter: blur(12px) saturate(120%);
+-webkit-backdrop-filter: blur(12px) saturate(120%);
+
+/* ✅ sombra menos “carísima” */
+box-shadow: 0 18px 60px rgba(0,0,0,0.45);
+
+/* ✅ aisla repintados del resto de la página */
+contain: layout paint;
+
+}
+
+
+/* =========================
+   Scrollbar glass (landing) — igual que paneles
+   ========================= */
+
+/* Firefox */
+.landingCard{
+  scrollbar-width: thin;
+  scrollbar-color: rgba(231,237,245,0.28) rgba(255,255,255,0.06);
+}
+
+/* Chrome / Edge / Safari */
+.landingCard::-webkit-scrollbar{ width:10px; }
+.landingCard::-webkit-scrollbar-track{
+  background: rgba(255,255,255,0.05);
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.landingCard::-webkit-scrollbar-thumb{
+  background: linear-gradient(180deg, rgba(231,237,245,0.28), rgba(231,237,245,0.14));
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
+}
+.landingCard::-webkit-scrollbar-thumb:hover{
+  background: linear-gradient(180deg, rgba(231,237,245,0.36), rgba(231,237,245,0.18));
+}
+/* Si el scroll ocurre en el overlay (móvil), mantenemos el mismo look */
+.landingOverlay{
+  scrollbar-width: thin;
+  scrollbar-color: rgba(231,237,245,0.28) rgba(255,255,255,0.06);
+}
+.landingOverlay::-webkit-scrollbar{ width:10px; }
+.landingOverlay::-webkit-scrollbar-track{
+  background: rgba(255,255,255,0.05);
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.landingOverlay::-webkit-scrollbar-thumb{
+  background: linear-gradient(180deg, rgba(231,237,245,0.28), rgba(231,237,245,0.14));
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.10);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,0.10);
+}
+.landingOverlay::-webkit-scrollbar-thumb:hover{
+  background: linear-gradient(180deg, rgba(231,237,245,0.36), rgba(231,237,245,0.18));
+}
+
+/* =========================
+   LANDING HERO (título con estilo, sutil)
+   ========================= */
+
+.landingHero{
+  padding: 6px 8px 16px 8px;
+  margin-bottom: 10px;
+}
+
+.landingKicker{
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+
+  font-size: 12px;
+  letter-spacing: .22em;
+  text-transform: uppercase;
+  opacity: .72;
+}
+
+.landingKicker::before{
+  content:"";
+  width: 10px;
+  height: 10px;
+  border-radius: 999px;
+
+  background: color-mix(in srgb, var(--accent) 70%, rgba(255,255,255,0.20));
+  box-shadow:
+    0 0 0 4px rgba(255,255,255,0.04),
+    0 0 26px color-mix(in srgb, var(--accent) 38%, transparent);
+  opacity: .95;
+}
+
+.landingH1{
+  margin: 8px 0 0 0;
+  font-size: 40px;
+  font-weight: 750;           /* menos “bloque” */
+  letter-spacing: -0.03em;
+  line-height: 1.06;
+
+  background: none;           /* fuera gradient */
+  -webkit-background-clip: initial;
+  background-clip: initial;
+  color: rgba(231,237,245,0.94);
+
+  text-shadow: none;          /* fuera “profundidad” */
+}
+
+
+.landingH1::after{
+  content:"";
+  display:block;
+  height: 1px;
+  width: min(420px, 100%);
+  margin-top: 10px;
+
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--accent) 48%, rgba(255,255,255,0.18)),
+    transparent 75%
+  );
+  opacity: .55;
+}
+
+.landingLead{
+  margin-top: 10px;
+  opacity: .78;
+  line-height: 1.45;
+  max-width: 62ch;
+}
+
+/* Móvil: más compacto, igual de fino */
+@media (max-width: 768px){
+  .landingH1{
+    font-size: 28px;
+    line-height: 1.10;
+    letter-spacing: -0.03em;
+  }
+  .landingH1::after{
+    width: min(320px, 100%);
+    opacity: .50;
+  }
+  .landingLead{
+    max-width: 48ch;
+  }
+}
+
+.landingGrid{
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+  padding: 10px 6px 6px 6px;
+}
+
+@media (max-width: 980px){
+  .landingGrid{ grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+@media (max-width: 760px){
+  .landingGrid{ grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 520px){
+  .landingGrid{ grid-template-columns: 1fr; }
+}
+
+
+.landingSchool{
+  position: relative;
+  border-radius: 16px;
+
+  /* más compacta */
+  padding: 12px 16px 10px 18px;
+
+  background: rgba(255,255,255,0.055);
+  border: 1px solid rgba(255,255,255,0.10);
+
+  backdrop-filter: blur(18px) saturate(140%);
+  -webkit-backdrop-filter: blur(18px) saturate(140%);
+
+  /* sombra más editorial */
+  box-shadow:
+    0 14px 36px rgba(0,0,0,0.42),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+
+  transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease, background .16s ease;
+  cursor: pointer;
+  overflow: hidden;
+}
+
+.landingSchool:hover{
+  transform: translateY(-1px);
+  border-color: rgba(255,255,255,0.16);
+  background: rgba(255,255,255,0.065);
+  box-shadow:
+    0 20px 48px rgba(0,0,0,0.48),
+    inset 0 1px 0 rgba(255,255,255,0.06);
+}
+
+.landingSchool:active{
+  transform: translateY(0px);
+  box-shadow:
+    0 12px 30px rgba(0,0,0,0.40),
+    inset 0 1px 0 rgba(255,255,255,0.05);
+}
+
+
+
+/* banda color (firma visual de la escuela) */
+.landingSchool::before{
+  content:"";
+  position:absolute;
+  left: 6px;
+  top: 6px;
+  bottom: 6px;
+  width: 3px;
+
+  border-radius: 6px;
+
+  
+  opacity: .85;
+}
+
+
+
+.landingSchoolName{
+  font-weight: 850;
+  font-size: 19px;
+  line-height: 1.05;
+  letter-spacing: -0.6px;
+
+  color: var(--schoolColor, #fff);
+  text-shadow: 0 0 18px rgba(0,0,0,0.28);
+}
+
+
+
+.landingSchoolMeta{
+  margin-top: 0;
+
+  display:inline-flex;
+  gap: 6px;
+  align-items: center;
+
+  margin-left: 8px;
+  vertical-align: middle;
+
+  background: none !important;
+  border: none !important;
+  box-shadow: none !important;
+  padding: 0 !important;
+  border-radius: 0 !important;
+
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: 0.2px;
+  color: rgba(231,237,245,0.62);
+}
+
+.landingSchoolMeta .landingCount{
+  color: rgba(231,237,245,0.92);
+  font-weight: 950;
+}
+
+.landingSchoolMeta .landingCountLabel{
+  color: rgba(231,237,245,0.62);
+  font-weight: 800;
+}
+
+
+.landingSchoolMeta .landingCount{
+  color: rgba(231,237,245,0.92);
+}
+
+.landingSchoolMeta .landingCountLabel{
+  color: rgba(231,237,245,0.68);
+  font-weight: 700;
+}
+
+
+
+/* ================== /LANDING ================== */
+
+/* secuencias circulares. */
+/* ===== SECUENCIAS (FLOW) — modo CIRCULAR para protocolo_ciclico ===== */
+.mp-flow.mp-flow-circ{
+  position: relative;
+
+  /* tamaño del círculo */
+  width: min(560px, 100%);
+  height: 360px;
+
+  /* anulamos el carril vertical */
+  padding-left: 0;
+  margin-top: 14px;
+
+  display: block;
+}
+
+.mp-flow.mp-flow-circ::before{
+  display:none; /* quita la línea vertical */
+}
+
+/* los items pasan a posición absoluta */
+.mp-flow.mp-flow-circ .mp-flowItem{
+  position: absolute;
+  left: 50%;
+  top: 50%;
+
+  /* el item ya no necesita grid de 2 columnas */
+  display: block;
+  grid-template-columns: none;
+  column-gap: 0;
+  align-items: initial;
+}
+
+.mp-flow.mp-flow-circ .mp-flowItem::after{
+  display:none; /* quita el tramo vertical por item */
+}
+
+/* dot y caja apilados */
+.mp-flow.mp-flow-circ .mp-flowDot{
+  margin: 0 auto 8px auto;
+}
+
+.mp-flow.mp-flow-circ .mp-flowBox{
+  width: 190px;
+  text-align: center;
+}
+
+/* colocación circular usando variables CSS por item */
+.mp-flow.mp-flow-circ .mp-flowItem{
+  --r: 135px;  /* radio */
+  transform:
+    translate(-50%,-50%)
+    rotate(var(--ang))
+    translate(var(--r))
+    rotate(calc(-1 * var(--ang)));
+}
+
+/* icono central de ciclo */
+.mp-flow.mp-flow-circ::after{
+  content:"↺";
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform: translate(-50%,-50%);
+  font-size: 28px;
+  font-weight: 900;
+  color: color-mix(in srgb, var(--schoolColor,#D9AA3F) 70%, rgba(255,255,255,0.20));
+  opacity: .85;
+  text-shadow: 0 0 18px rgba(0,0,0,0.35);
+}
+/* ===== FLOW CÍCLICO: flecha último → primero ===== */
+
+.mp-flow.mp-flow-loop{
+  position: relative;
+  padding-bottom: 52px;
+ /* espacio para la flecha */
+}
+
+
+.mp-flow.mp-flow-loop::before{
+  content:"";
+
+  position:absolute;
+
+  left: 22px;
+  top: 18px;
+  bottom: 22px;
+
+  width: 2px;
+
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    color-mix(in srgb, var(--schoolColor,#D9AA3F) 60%, transparent),
+    transparent
+  );
+
+  opacity:.5;
+}
+/* ===== RETORNO DESDE ÚLTIMO PASO AL INICIO ===== */
+
+.mp-flow.mp-flow-loop .mp-flowItem:last-child{
+  position: relative;
+}
+
+
+/* ===== Teachable: permitir ancho completo ===== */
+html, body{
+  width: 100%;
+  height: 100%;
+}
+
+body{
+  margin: 0;
+}
+
+/* Si Teachable envuelve con containers típicos */
+.container, .container-fluid, .row, .col, .col-12, .course-mainbar, .lecture-mainbar{
+  max-width: none !important;
+}
+
+/* Tu root (elige el id/clase real si lo tienes) */
+#app, #root, .app, .tmpsApp{
+  max-width: none !important;
+  width: 100% !important;
+}
+
+/* Evita padding heredado del contenedor */
+#app, #root, .app, .tmpsApp{
+  margin: 0 !important;
+  padding: 0 !important;
+}
+.landing-hero{
+  text-align:center;
+  margin-bottom:48px;
+}
+
+.landing-hero h1{
+  font-size:44px;
+  font-weight:750;
+  letter-spacing:-0.028em;
+  margin:0 0 12px;
+}
+
+
+.landing-hero p{
+  font-size:17px;
+  opacity:.68;
+  line-height:1.6;
+  margin:0;
+}
+
+/* Micro-noise ultra sutil (Apple style) */
+.landingSchool::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  border-radius: inherit;
+  pointer-events:none;
+
+  background-image:
+    url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='120' height='120'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='1'/></filter><rect width='120' height='120' filter='url(%23n)' opacity='.02'/></svg>");
+
+  mix-blend-mode: overlay;
+}
+.landingSchool{
+  background-clip: padding-box;
+}
+
+.landingSchool::before{
+  /* tu banda sigue igual */
+}
+
+.landingSchool::marker{ display:none; } /* por si acaso */
+.landingSchool .spec{
+  display:none;
+}
+/* =========================
+   LANDING · FIX SMARTPHONE
+   ========================= */
+
+@media (max-width: 768px){
+
+  .landingOverlay{
+    align-items: flex-start;   /* no centra vertical */
+    padding-top: 12px;
+  }
+
+  .landingCard{
+    margin-top: 12px;
+
+    max-height: 92dvh;
+    padding: 28px 22px;
+
+    border-radius: 22px;
+  }
+
+  .landingTitle{
+    font-size: 26px;
+    line-height: 1.15;
+  }
+}
+/* =========================
+   SCROLL FIX LANDING (móvil)
+   ========================= */
+
+/* Fondo bloqueado SOLO cuando la landing está activa */
+body.landing-on{
+  overflow: hidden !important;
+  height: 100%;
+}
+
+/* El overlay es el contenedor scrolleable */
+.landingOverlay{
+  height: 100dvh;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+/* La tarjeta también puede scrollear (doble seguridad) */
+.landingCard{
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+/* =========================
+   LANDING BLOBS (1 color, sutil)
+   ========================= */
+
+.landingBlobs{
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 0;            /* detrás del contenido */
+  overflow: hidden;
+
+  /* “un solo color” (usa tu accent) */
+  --blob: rgba(217,170,63,0.55);
+
+
+  filter: blur(100px);
+  opacity: .55;
+}
+
+/* 2 blobs grandes */
+.landingBlobs::before,
+.landingBlobs::after{
+  content:"";
+  position:absolute;
+  width: 560px;
+  height: 560px;
+  border-radius: 999px;
+  will-change: transform;
+  mix-blend-mode: screen;
+  opacity: .18;
+
+  background: radial-gradient(circle at 30% 30%, var(--blob), rgba(217,170,63,0) 62%);
+}
+
+.landingBlobs::before{
+  left: -180px;
+  top: -220px;
+  animation: landingBlobA 34s ease-in-out infinite;
+}
+
+.landingBlobs::after{
+  right: -220px;
+  bottom: -240px;
+  animation: landingBlobB 40s ease-in-out infinite;
+}
+
+/* Asegura que la landing (contenido) quede por encima */
+#landingOverlay .landingShell{
+  position: relative;
+  z-index: 1;
+}
+
+@keyframes landingBlobA{
+  0%   { transform: translate3d(0,0,0) scale(1); }
+  50%  { transform: translate3d(220px, 180px,0) scale(1.06); }
+  100% { transform: translate3d(0,0,0) scale(1); }
+}
+@keyframes landingBlobB{
+  0%   { transform: translate3d(0,0,0) scale(1); }
+  50%  { transform: translate3d(-240px, -160px,0) scale(1.05); }
+  100% { transform: translate3d(0,0,0) scale(1); }
+}
+
+/* En móvil: que se note un pelín más sin volverse “fiesta” */
+@media (max-width: 760px){
+  .landingBlobs{
+    filter: blur(70px);
+    opacity: .70;
+  }
+  .landingBlobs::before,
+  .landingBlobs::after{
+    opacity: .22;
+  }
+}
+
+/* Accesibilidad */
+@media (prefers-reduced-motion: reduce){
+  .landingBlobs::before,
+  .landingBlobs::after{
+    animation: none !important;
+  }
+}
+/* =========================
+   EMBED MODE (para iframes)
+   ========================= */
+body.embedMode{
+  overflow: hidden;
+}
+
+/* fuera landing y nav */
+body.embedMode #landingOverlay{ display:none !important; }
+body.embedMode .nav-speed{ display:none !important; }
+
+/* esconder panel izquierdo si existe */
+body.embedMode .leftPanel,
+body.embedMode .schoolsPanel,
+body.embedMode .sidePanel{
+  display:none !important;
+}
+
+/* el panel principal a full */
+body.embedMode .appShell{
+  width: 100% !important;
+  max-width: 100% !important;
+  padding: 0 !important;
+}
+body.embedMode .mainPanel{
+  width: 100% !important;
+  max-width: 100% !important;
+}
+/* =========================
+   EMBED MODE (iframe)
+   ?embed=1&open=<id>
+   ========================= */
+
+
+/* En embed: fuera el panel izquierdo (lista) */
+body.is-embed .panel.left{
+  display: none !important;
+}
+
+/* En embed: panel derecho visible y a pantalla completa */
+body.is-embed .panel.right{
+  display: block !important;
+  left: 0 !important;
+  width: 100vw !important;
+  height: 100vh !important;
+}
+
+/* Quita padding general */
+body.is-embed .app{
+  padding: 0 !important;
+}
+
+/* Fuera overlays/landing/menús rápidos */
+body.is-embed #landingOverlay,
+body.is-embed .nav-speed{
+  display: none !important;
+}
+
+/* La ficha ocupa todo */
+body.is-embed .sheet,
+body.is-embed #modelSheet{
+  width: 100vw !important;
+  height: 100vh !important;
+  max-width: none !important;
+  max-height: none !important;
+  border-radius: 0 !important;
+}
+
+/* =========================
+   EMBED MODE — anclar arriba
+   ========================= */
+body.is-embed,
+body.is-embed html{
+  height: 100%;
+}
+
+body.is-embed{
+  overflow-y: auto;
+}
+
+/* 1) si algún wrapper centraba, lo anulamos */
+body.is-embed *{
+  scroll-margin-top: 0;
+}
+
+/* 2) ancla arriba el primer contenedor "grande" típico */
+body.is-embed .app,
+body.is-embed .page,
+body.is-embed .wrap,
+body.is-embed .container,
+body.is-embed main,
+body.is-embed #app,
+body.is-embed #root{
+  align-items: flex-start !important;
+  justify-content: flex-start !important;
+}
+
+/* 3) si tu layout es flex centrado, esto lo rompe a favor de arriba */
+body.is-embed .app,
+body.is-embed #app,
+body.is-embed #root,
+body.is-embed main{
+  min-height: 0 !important;
+  height: auto !important;
+  padding-top: max(12px, env(safe-area-inset-top)) !important;
+}
+
+/* 4) por si hay un "centering" vía grid */
+body.is-embed .app,
+body.is-embed #app,
+body.is-embed #root,
+body.is-embed main{
+  place-items: start !important;
+}
+
+/* 5) si hay margin-top raro en el panel principal */
+body.is-embed .panel{
+  margin-top: 0 !important;
+}
+/* ✅ Embed: el documento debe medir la altura del iframe */
+html, body{
+  height: 100%;
+}
+
+body.embedMode{
+  height: 100dvh;        /* clave en iOS/Safari/iframes */
+  overflow: hidden;      /* evita scroll “de la página” que corta paneles */
+}
+
+/* ✅ Tu shell y panel principal deben ocupar toda la altura */
+body.embedMode .appShell{
+  height: 100dvh !important;
+  min-height: 100dvh !important;
+}
+
+body.embedMode .mainPanel{
+  height: 100dvh !important;
+  min-height: 100dvh !important;
+  overflow: hidden !important;  /* que no recorte internamente por accidente */
+}
+
+  </style>
 </head>
 
-
 <body>
-  <div class="bg-blobs"></div>
-
+   <div class="bg-blobs" aria-hidden="true"></div>
   <div class="app">
-    <section class="panel">
-      <div class="wrap">
-     <!-- (Landing pendiente) Hero eliminado -->
+    <!-- PANEL IZQUIERDO -->
+    <aside class="panel left">
+    <h1 class="title">
+  <span class="t-eyebrow">Buscador por</span>
+  <span class="t-main">Modelos</span>
+</h1>
 
+     
 
+     <div class="card schoolSticky">
 
-        <div class="topbar">
-  <div class="score" id="scoreBox">
-  <span class="dot" aria-hidden="true"></span>
-
-  <span class="k">Puntos</span>
-  <span class="v" id="score">0</span>
-
-  <span class="k">Vidas</span>
-  <span class="v" id="lives">3</span>
-
-  <span class="k">Racha</span>
-  <span class="v" id="streak">0</span>
-
-  <span class="k" id="roundsLabel">Rondas</span>
-  <span class="v" id="rounds">0</span>
-
-</div>
-
-   <div class="controlsRow">
-    <div class="actions">
-    <button class="btn btnTight" id="btnNext">
-  <span class="tLong">Siguiente</span>
-  <span class="tShort">Sig.</span>
-</button>
-
-<button class="btn btnTight" id="btnReset">
-  <span class="tLong">Reset</span>
-  <span class="tShort">Res.</span>
-</button>
-
-    </div>
-
-    <!-- ✅ Filtro por escuela -->
-    <div class="filterBox">
-      <span class="filterLabel">Escuela</span>
-      <select id="schoolFilter" class="select">
-        <option value="todas">Todas</option>
-        <!-- opciones dinámicas por JS -->
-      </select>
-    </div>
-  </div>
-
-
+        <div class="row" style="margin-bottom:8px">
+          <label for="schoolSelect">Escuela</label>
         </div>
+        <select id="schoolSelect"></select>
 
-        <div class="grid">
-          <!-- IZQUIERDA: IDEA -->
-          <div class="card">
-        
-            <div class="ideaText" id="ideaText">Cargando…</div>
-
-            <div class="metaRow">
-              <span class="pill" id="pillYear">—</span>
-            <span class="pill" id="pillCode">—</span>
-
-            </div>
-
-            <div class="answers" id="answers"></div>
-
-            <div class="status" id="status"></div>
-          </div>
-
-          <!-- DERECHA: “revelado” / foto / referencia -->
-<div class="card rightCard" style="padding:0; overflow:hidden;">
-  <iframe
-    id="modelFrame"
-    class="modelFrame"
-    title="Detalle del modelo"
-    loading="eager"
-    referrerpolicy="no-referrer"
-  ></iframe>
-</div>
-
-
-</div>
-
-        </div>
-
+        <div id="countLine" class="subtitle" style="margin:10px 0 0 0; opacity:.9"></div>
       </div>
-    </section>
-  </div>
-<!-- FULLSCREEN (móvil) -->
-<div class="fsOverlay" id="fsOverlay" aria-hidden="true">
-  <div class="fsSheet" role="dialog" aria-modal="true" aria-label="Detalle del modelo">
-    <div class="fsTop">
-      <div class="fsTitle">Detalle del modelo</div>
-      <button class="btn fsClose" id="btnCloseFs">Cerrar</button>
+
+      <div class="card">
+        <div class="row" style="justify-content:space-between">
+          <div style="font-weight:900; font-size:13px; color:#fff">Modelos</div>
+          <div class="subtitle" style="margin:0; font-size:12px">clic para abrir ficha</div>
+        </div>
+        <div id="modelsList" class="modelsList"></div>
+      </div>
+    </aside>
+
+    <!-- PANEL DERECHO -->
+    <main class="panel right model-panel">
+    <div id="modelInfo" class="modelPanel">
+  <div class="mp-hero">
+    <div class="mp-hero-eyebrow">Biblioteca viva</div>
+    <div class="mp-hero-title">Modelos psicoterapéuticos</div>
+    <div class="mp-hero-text">
+      Explora cómo distintas escuelas entienden el cambio, el sufrimiento y la intervención clínica.
     </div>
 
-    <!-- aquí clonamos el contenido del panel derecho -->
-   <div class="fsResult" id="fsResult"></div>
-
-<!-- aquí clonamos el contenido del panel derecho -->
-<div class="fsBody" id="fsBody"></div>
-
-    <div class="fsBottom">
-      <button class="btn" id="btnNextFs">Siguiente</button>
+    <div class="mp-hero-steps">
+      <div class="mp-step"><span class="mp-step-dot"></span>1) Elige una escuela</div>
+      <div class="mp-step"><span class="mp-step-dot"></span>2) Haz clic en un modelo</div>
+      <div class="mp-step"><span class="mp-step-dot"></span>3) Lee influencias, procedimientos y micros</div>
     </div>
   </div>
+
+  <div class="mp-hint">Selecciona una escuela y luego un modelo para ver toda su información.</div>
 </div>
+
+    </main>
+  </div>
 
   <script>
-  /* =========================
-     CONFIG — AJUSTA ESTO
-     ========================= */
+    // ================== Índice de fotos de autores (ESCALABLE) ==================
+window.AUTHOR_PHOTO_INDEX = null;
 
-// Datos SIEMPRE desde tmps-data vía jsDelivr (estable en cualquier dominio)
-const GH_BASE = 'https://cdn.jsdelivr.net/gh/josepmunta-design/tmps-data@main/data';
+console.log('✅ script fotos cargado', location.href);
 
-function gh(path){
-  return `${GH_BASE}/${String(path).replace(/^\/+/,'')}`;
-}
+async function loadAuthorPhotoIndex(){
 
-// ✅ URLs de datos (SIEMPRE desde tmps-data vía jsDelivr)
-const ESCUELAS_INDEX  = gh('Core/escuelas/index.json');
-const FOTOS_JSON_URL  = gh('Core/fotos/foto.json');
-const PHOTOS_BASE_URL = gh('Core/fotos/');
-
-// ✅ URL BASE de la app de MODELOS (para iframe)
-const MODELOS_APP_BASE = "https://modelos.tumentorpsicologia.com/apps/modelos/index.html";
-
-function modelosEmbedUrl(modelId){
-  // cache-buster para forzar que el iframe abra el modelo correcto siempre
-  return `${MODELOS_APP_BASE}?embed=1&solo=1&open=${encodeURIComponent(modelId)}&t=${Date.now()}`;
-}
+  const url = 'https://cdn.jsdelivr.net/gh/josepmunta-design/tmps-data@main/data/Core/fotos/foto.json';
 
 
+  try{
+    const r = await fetch(url, { cache: 'no-store' });
+    if (!r.ok) throw new Error('foto.json HTTP ' + r.status);
 
-  /* =========================
-     Estado
-     ========================= */
-  const $ = (s)=>document.querySelector(s);
-  const elIdea   = $("#ideaText");
-  const elAns    = $("#answers");
-  const elScore  = $("#score");
-  const elRounds = $("#rounds");
-    const elLives  = $("#lives");
-const elStreak = $("#streak");
+    const data = await r.json();
+    const root = (data && typeof data === 'object') ? data : {};
 
-  const elStatus = $("#status");
-  const elLabel  = $("#modelLabel");
-  const elAuth   = $("#modelAuthors");
-const elPhoto  = $("#photo");
-const elFrame  = $("#modelFrame");
+    const authorsRaw = (root.authors && typeof root.authors === 'object') ? root.authors : {};
+    const modelsRaw  = (root.models  && typeof root.models  === 'object') ? root.models  : {};
 
-    const elGroup  = $("#modelGroup");
-    const elModelSchool = $("#modelSchool");
-const elModelSchoolTxt = $("#modelSchoolTxt");
-
-const pillSchool = $("#pillSchool");
-const pillYear = $("#pillYear");
-const pillCode = $("#pillCode");
-const fsOverlay = $("#fsOverlay");
-const fsResult  = $("#fsResult");
-const fsBody    = $("#fsBody");
-const btnCloseFs = $("#btnCloseFs");
-const btnNextFs  = $("#btnNextFs");
-const elSchoolFilter = $("#schoolFilter");
-
-
-
-
-let score = 0;
-let rounds = 0;
-
-let lives = 3;
-let maxLives = 5;
-
-let streak = 0;
-let bestStreak = 0;
-
-// récord guardado
-let bestScore = Number(localStorage.getItem("tmps_bestScore") || 0);
-let bestStreakEver = Number(localStorage.getItem("tmps_bestStreak") || 0);
-
-
-  /** pool de modelos (filtrado): [{id,label,grupo,year,autores,file,url}] */
-  let MODELS = [];
-
-  /** pool de items (filtrado): [{kind, modelId, modelLabel, grupo, year, autores, text}] */
-  let ITEMS = [];
-
-  /** ✅ pools completos (sin filtrar) */
-  let MODELS_ALL = [];
-  let ITEMS_ALL = [];
-
-  /** ✅ filtro actual */
-  let CURRENT_SCHOOL = "todas";
-
-
-  /** mapa de fotos: modelId -> filename */
-  let PHOTO_BY_MODEL = {};
-/** mapa: modelId -> descripcion */
-let DESC_BY_MODEL = {};
-
-  /** ronda actual */
-  let CURRENT = null;
-
-  /* =========================
-     Utils
-     ========================= */
-    function limpiarAutorFinal(txt){
-  let s = String(txt ?? "").trim();
-
-  // 1) "Referencia: ..." o "Referencias: ..." al final
-  s = s.replace(/\s*(referencias?|ref\.?)\s*:\s*.+$/i, "").trim();
-
-  // 2) cualquier paréntesis final "(...)" (típico APA) al final
-  s = s.replace(/\s*\([^)]*\)\s*\.?\s*$/g, "").trim();
-
-  // 3) "Autor, 1999" o "Autor et al., 1999" al final (sin paréntesis)
-  s = s.replace(/\s*[A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑáéíóúñ.'-]*(?:\s+et\s+al\.)?,\s*\d{4}[a-z]?\s*\.?\s*$/g, "").trim();
-
-  // 4) "Autor (1999)" al final (sin paréntesis externos)
-  s = s.replace(/\s*[A-ZÁÉÍÓÚÑ][\wÁÉÍÓÚÑáéíóúñ.'-]*(?:\s+et\s+al\.)?\s*\(\s*\d{4}[a-z]?\s*\)\s*\.?\s*$/g, "").trim();
-
-  return s;
-}
-
-  function escapeHtml(str){
-    return String(str ?? "")
-      .replaceAll("&","&amp;")
-      .replaceAll("<","&lt;")
-      .replaceAll(">","&gt;")
-      .replaceAll('"',"&quot;")
-      .replaceAll("'","&#039;");
-  }
-
-  function pickOne(arr){
-    return arr[Math.floor(Math.random()*arr.length)];
-  }
-
-  function shuffle(arr){
-    const a = arr.slice();
-    for(let i=a.length-1;i>0;i--){
-      const j = Math.floor(Math.random()*(i+1));
-      [a[i],a[j]] = [a[j],a[i]];
+    const authorsNorm = {};
+    for (const [k, v] of Object.entries(authorsRaw)){
+      if (typeof v === 'string' && v.trim()) authorsNorm[normAuthorKey(k)] = v.trim();
     }
-    return a;
-  }
 
-  function setSchoolColor(grupo){
-    // Si luego quieres: tu mapa real de colores por escuela
-const map = {
-  "Psicoanálisis": "#4E79A7",
-  "Conductismo": "#d69640",
-  "Cognitivo": "#E15759",
-  "Humanista": "#76B7B2",
-  "Sistémico": "#F1CE63",
-  "Constructivista": "#B07AA1",
-  "Integrativo": "#FF9DA7",
-  "Transversal": "#5F7F78"
+    const modelsNorm = {};
+    for (const [k, v] of Object.entries(modelsRaw)){
+      if (typeof v === 'string' && v.trim()) modelsNorm[String(k).trim()] = v.trim();
+    }
+
+    window.AUTHOR_PHOTO_INDEX = { authors: authorsNorm, models: modelsNorm };
+
+    console.log('📸 Foto index cargado:', window.AUTHOR_PHOTO_INDEX);
+return window.AUTHOR_PHOTO_INDEX;
+
+
+  }catch(e){
+    console.warn('No se pudo cargar foto.json', e);
+   window.AUTHOR_PHOTO_INDEX = { authors:{}, models:{} };
+return window.AUTHOR_PHOTO_INDEX;
+
+  }
+}
+
+
+
+function normAuthorKey(s){
+  return String(s ?? '')
+    .trim()
+    .toLowerCase()
+    .normalize('NFD')                 // separa acentos
+    .replace(/[\u0300-\u036f]/g,'')   // quita acentos
+    .replace(/[^a-z0-9 ]+/g,' ')      // ✅ quita puntos, comas, guiones, etc.
+    .replace(/\s+/g,' ')             // colapsa espacios
+    .trim();
+}
+
+
+window.getAuthorPhoto = function(authorName){
+
+  const idx = window.AUTHOR_PHOTO_INDEX;
+  const authors = idx && idx.authors ? idx.authors : null;
+
+  if (!authors || !Object.keys(authors).length) return null;
+
+  const key = normAuthorKey(authorName);
+  const file = authors[key];
+
+  if (!file) return null;
+
+  return `${DATA_BASE}/Core/fotos/${file}`;
+
 };
 
-    const c = map[grupo] || "#D9AA3F";
-    document.documentElement.style.setProperty("--schoolColor", c);
-    document.documentElement.style.setProperty("--panelGlow", `color-mix(in srgb, ${c} 18%, transparent)`);
+window.getModelPhoto = function(modelId, authorName){
+
+  const idx = window.AUTHOR_PHOTO_INDEX;
+  const models = idx && idx.models ? idx.models : null;
+
+  // 1) Preferencia total: por ID de modelo
+  if (models && modelId){
+    const fileById = models[String(modelId).trim()];
+    if (fileById){
+      return `${DATA_BASE}/Core/fotos/${fileById}`;
+
+    }
   }
-function setRandomDotColor(){
-  const DOT_COLORS = [
-    "#4E79A7", // Psicoanálisis
-    "#d69640", // Conductismo
-    "#E15759", // Cognitivo
-    "#76B7B2", // Humanista
-    "#F1CE63", // Sistémico
-    "#B07AA1", // Constructivista
-    "#FF9DA7", // Integrativo
-    "#5F7F78", // Transversal
-    "#9FB0C3"  // Otros / neutro
+
+  // 2) Fallback: por autor (por si aún no has mapeado ese modelo)
+  return window.getAuthorPhoto(authorName);
+};
+
+
+async function ensureD3(timeoutMs = 8000){
+  if (window.d3) return true;
+
+  const sources = [
+    "https://cdn.jsdelivr.net/npm/d3@7/dist/d3.min.js",
+    "https://unpkg.com/d3@7/dist/d3.min.js",
+    "https://d3js.org/d3.v7.min.js"
   ];
-  const c = DOT_COLORS[Math.floor(Math.random() * DOT_COLORS.length)];
-  document.documentElement.style.setProperty("--dotColor", c);
+
+  function load(src){
+    return new Promise((ok, fail)=>{
+      const s = document.createElement("script");
+      s.src = src;
+      s.async = true;
+      s.onload = ok;
+      s.onerror = fail;
+      document.head.appendChild(s);
+    });
+  }
+
+  const t0 = Date.now();
+  for (const src of sources){
+    try{
+      await Promise.race([
+        load(src),
+        new Promise((_,rej)=>setTimeout(()=>rej(new Error("timeout")), 2500))
+      ]);
+      if (window.d3) return true;
+    }catch(e){}
+    if (Date.now() - t0 > timeoutMs) break;
+  }
+  return !!window.d3;
 }
 
-  function normalizePhotosJson(json){
-    // Soporta 2 patrones habituales:
-    // A) { models: { "id": "archivo.jpg", ... } }
-    // B) { "models": {...}, ... } o incluso directo { "id": "archivo.jpg" }
-    if(json && typeof json === "object"){
-      if(json.models && typeof json.models === "object") return json.models;
-      // fallback: si viene directo como mapa id->filename
-      const keys = Object.keys(json);
-      const looksLikeMap = keys.length && typeof json[keys[0]] === "string";
-      if(looksLikeMap) return json;
-    }
-    return {};
+// ✅ NUEVO: topojson también puede no estar listo aunque esté con defer
+async function ensureTopojson(timeoutMs = 6000){
+  if (window.topojson) return true;
+
+  // si tu <script defer ...> está, normalmente bastaría con esperar un poco
+  const t0 = Date.now();
+  while (!window.topojson && (Date.now() - t0) < timeoutMs){
+    await new Promise(r => setTimeout(r, 50));
   }
+  return !!window.topojson;
+}
+
+
+window.addEventListener('DOMContentLoaded', async () => {
+  // ✅ PARAMS GLOBALES (una sola fuente de verdad)
+  window.__QS = window.__QS || new URLSearchParams(location.search);
+  window.__EMBED  = ["1","true","yes"].includes((window.__QS.get("embed") || "").toLowerCase());
+  window.__OPENID = (window.__QS.get("open") || "").trim();
+
+  if(window.__EMBED){
+    document.body.classList.add("embedMode");
+    document.body.classList.add("is-embed");
+  }
+
+  // ✅ dependencias primero (evita “a veces sí / a veces no”)
+  await ensureD3();
+  await ensureTopojson();
+
+await loadAuthorPhotoIndex();
+  // ✅ índice GH_SCHOOLS: útil, pero NO puede romper el render si falla
+try{
+  await loadGhSchoolsIndex();
+}catch(e){
+  console.warn("[GH_SCHOOLS] no se pudo cargar (continúo sin él):", e);
+  window.GH_SCHOOLS = window.GH_SCHOOLS || {};
+}
+    // =========================================================
+    // 1) COLORES de escuelas (puedes copiar los tuyos)
+    // =========================================================
+    const BG_COLS = [
+      { key:'Psicoanálisis',    color:'#4E79A7' },
+      { key:'Conductismo',     color:'#d69640' },
+      { key:'Cognitivo',       color:'#E15759' },
+      { key:'Humanista',       color:'#76B7B2' },
+      { key:'Sistémico',       color:'#F1CE63' },
+      { key:'Constructivista', color:'#B07AA1' },
+      { key:'Integrativo',     color:'#FF9DA7' },
+   { key:'Transversal', color:'#5F7F78' },
+
+
+
+      { key:'Otros',  color:'#f2f2f2' }
+    ];
+    const groupColor = new Map(BG_COLS.map(d => [d.key, d.color]));
+      
+      
+    // ===== INFO DE ESCUELAS (texto manual) =====
+const SCHOOL_INFO = {
+  'Psicoanálisis': {
+    subtitle: 'Inconsciente, conflicto, defensas y desarrollo',
+    desc: `La escuela psicoanalítica entiende el malestar como expresión de conflictos internos, defensas y patrones relacionales
+que se organizan a lo largo del desarrollo. El trabajo terapéutico suele centrarse en insight, elaboración emocional y cambio
+de patrones (transferencia/relación terapéutica) con distintos grados de directividad según el autor.`,
+    keys: ['conflicto/defensas', 'transferencia', 'desarrollo', 'relación terapéutica', 'elaboración']
+  },
+
+  'Conductismo': {
+    subtitle: 'Aprendizaje, contingencias y exposición',
+    desc: `El foco está en cómo se adquieren y mantienen conductas y respuestas emocionales mediante aprendizaje.
+La intervención prioriza evaluación funcional, cambio de contingencias, entrenamiento y exposición para modificar hábitos
+y reducir evitación.`,
+    keys: ['análisis funcional', 'exposición', 'refuerzo', 'habilidades', 'hábitos']
+  },
+
+  'Cognitivo': {
+    subtitle: 'Procesamiento de la información, creencias y reestructuración',
+    desc: `Plantea que pensamiento, atención y memoria influyen en emoción y conducta. Se trabaja sobre creencias,
+sesgos y estrategias de afrontamiento con técnicas como reestructuración, experimentos conductuales y entrenamiento
+metacognitivo según el modelo.`,
+    keys: ['creencias', 'sesgos', 'reestructuración', 'experimentos', 'metacognición']
+  },
+
+  'Humanista': {
+    subtitle: 'Experiencia, autenticidad y crecimiento',
+    desc: `Enfatiza la experiencia vivida, la congruencia y el potencial de crecimiento. La relación terapéutica es
+un agente central de cambio (presencia, aceptación, empatía) y el trabajo suele facilitar contacto emocional y
+autocompasión/autenticidad.`,
+    keys: ['experiencia', 'empatía', 'aceptación', 'autenticidad', 'crecimiento']
+  },
+
+  'Sistémico': {
+    subtitle: 'Patrones relacionales, comunicación y contexto',
+    desc: `Entiende el problema en el sistema de relaciones y en los patrones de interacción. La intervención busca
+cambiar reglas, significados y secuencias comunicacionales, trabajando con familia/pareja o con el sistema “interno”
+representado en sesión.`,
+    keys: ['patrones', 'comunicación', 'ciclo', 'contexto', 'reencuadre']
+  },
+
+  'Integrativo': {
+    subtitle: 'Procesos y combinación coherente de estrategias',
+    desc: `Integra técnicas y principios de distintas tradiciones buscando coherencia con el caso y con procesos de cambio.
+Suele apoyarse en formulación de caso, factores comunes y selección estratégica de intervenciones.`,
+    keys: ['formulación', 'procesos', 'factores comunes', 'selección', 'flexibilidad']
+  },
+  'Constructivista': {
+  subtitle: 'Significado, organización del self y construcción de la experiencia',
+  desc: `La escuela constructivista entiende el malestar como una forma de organización del significado y del self,
+construida a lo largo de la experiencia relacional y biográfica. El cambio terapéutico no se produce corrigiendo
+contenidos, sino transformando la manera en que la persona interpreta, da sentido y se relaciona con su propia
+experiencia, favoreciendo coherencia, diferenciación e integración.`,
+  keys: ['significado', 'self', 'narrativa', 'coherencia', 'identidad']
+},
+  'Transversal': {
+  subtitle: 'Factores comunes, procesos de cambio y coherencia terapéutica',
+  desc: `Los enfoques transversales no se definen por una teoría única del problema, sino por identificar
+procesos de cambio y condiciones que operan a través de distintos modelos. El énfasis se pone en la alianza,
+las expectativas, la explicación compartida del malestar y la activación de procesos psicológicos relevantes,
+buscando coherencia clínica más que fidelidad a una escuela concreta.`,
+  keys: ['factores comunes', 'alianza', 'expectativas', 'procesos de cambio', 'coherencia']
+},
+  'Otros': {
+  subtitle: 'Tradiciones no occidentales, contemplativas y culturales',
+  desc: `La categoría “Otros” agrupa enfoques terapéuticos que no emergen del desarrollo histórico occidental de la psicoterapia,
+o que se basan en epistemologías distintas a las escuelas clásicas (psicoanálisis, cognitivo, humanista, sistémico, etc.).
+
+Incluye tradiciones orientales, modelos contemplativos, enfoques indígenas y sistemas de comprensión del sufrimiento
+basados en la aceptación, la acción correcta, la disciplina vital o la relación con la naturaleza y la comunidad.
+En estos modelos, el cambio no se produce corrigiendo síntomas ni contenidos mentales, sino transformando la relación
+con la experiencia y la forma de vivirla.`,
+  keys: [
+    'aceptación',
+    'acción con malestar',
+    'conciencia',
+    'disciplina vital',
+    'sabiduría experiencial',
+    'contexto cultural'
+  ]
+}
+
+
+
+};
+
+function hexToRgba(hex, a=0.14){
+  if (!hex) return `rgba(217,170,63,${a})`;
+  const h = hex.replace('#','').trim();
+  const full = h.length===3 ? h.split('').map(x=>x+x).join('') : h;
+  const n = parseInt(full, 16);
+  const r = (n >> 16) & 255;
+  const g = (n >> 8) & 255;
+  const b = n & 255;
+  return `rgba(${r},${g},${b},${a})`;
+}
+  
+function tintForModel(model, selectedSchool){
+  // Prioridad 1: escuela seleccionada (tu UI trabaja por escuela)
+  if (selectedSchool && groupColor.has(selectedSchool)) return groupColor.get(selectedSchool);
+
+  // Prioridad 2: inferir por texto del grupo si no coincide exacto
+  const g = (model?.grupo || '').toLowerCase();
+  if (g.includes('cognit')) return groupColor.get('Cognitivo') || '#E15759';
+ if (g.includes('conduct')) return groupColor.get('Conductismo') || '#d69640';
+  if (g.includes('psicoan')) return groupColor.get('Psicoanálisis') || '#4E79A7';
+  if (g.includes('human')) return groupColor.get('Humanista') || '#76B7B2';
+  if (g.includes('sist')) return groupColor.get('Sistémico') || '#F1CE63';
+  if (g.includes('construct')) return groupColor.get('Constructivista') || '#B07AA1';
+  if (g.includes('integr')) return groupColor.get('Integrativo') || '#FF9DA7';
+
+  // Fallback
+  return '#D9AA3F';
+}
+
+    // =========================================================
+    // 2) DATOS: estructura EXACTA que tú importas del otro código
+    //    (nota: esta app NO muestra "procesos" ni "mjps" aunque existan)
+    // =========================================================
+    const LOCAL_MODELS = [
+    {
+    "id": "psicodrama-moreno-1921",
+    "grupo": "Humanista",
+    "label": "Psicodrama",
+    "year": 1921,
+    "autores": "Jacob Levy Moreno",
+    "file": "modelos/humanista/psicodrama-moreno-1921.json"
+  }
+
+];
+  // ===== MODELS GLOBAL (debe existir antes de usarlo) =====
+let MODELS = LOCAL_MODELS.filter(m => !m.hideInModels);
+window.MODELS_ALL = MODELS.slice();
+
+// =========================================================
+// 2B) DATOS: GitHub + compatibilidad con datos locales
+// =========================================================
+// =========================
+// MINI MAP (estética Mapamundi)
+// =========================
+const MINI_WORLD = { loaded:false, countries:null };
+
+async function miniLoadWorld(){
+  if (MINI_WORLD.loaded) return MINI_WORLD.countries;
+
+  const world = await fetch('https://cdn.jsdelivr.net/npm/world-atlas@2/countries-50m.json')
+    .then(r => r.json()); // igual que Mapamundi
+
+  MINI_WORLD.countries = topojson.feature(world, world.objects.countries);
+  MINI_WORLD.loaded = true;
+  return MINI_WORLD.countries;
+}
+
+function miniSize(svgEl){
+  const r = svgEl.getBoundingClientRect();
+  return { w: Math.max(10, r.width), h: Math.max(10, r.height) };
+}
+
+function miniEnsureDefs(svg){
+  // defs + dotGlow (igual que Mapamundi)
+  let defs = svg.select('defs');
+  if (!defs.node()) defs = svg.append('defs');
+
+  if (!defs.select('#dotGlow').node()){
+    const fDot = defs.append('filter')
+      .attr('id', 'dotGlow')
+      .attr('x', '-80%')
+      .attr('y', '-80%')
+      .attr('width', '260%')
+      .attr('height', '260%');
+
+    fDot.append('feDropShadow')
+      .attr('dx', 0)
+      .attr('dy', 0)
+      .attr('stdDeviation', 2.2)
+      .attr('flood-color', 'var(--dotGlow)');
+  }
+}
+
+async function miniRender(svgEl, m){
+  if (!svgEl) return;
+
+  const svg = d3.select(svgEl);
+  const { w, h } = miniSize(svgEl);
+  svg.attr('viewBox', `0 0 ${w} ${h}`);
+
+  // Si no hay coords, limpia el svg y sal
+  const hasCoords = Number.isFinite(m?.lat) && Number.isFinite(m?.lon);
+  if (!hasCoords){
+    svg.selectAll('*').remove();
+    return;
+  }
+
+  // Root/layers (mismo orden conceptual que Mapamundi)
+  let root = svg.select('g.mini-root');
+  if (!root.node()){
+    svg.selectAll('*').remove(); // render limpio
+    miniEnsureDefs(svg);
+
+    root = svg.append('g').attr('class','mini-root');
+    root.append('g').attr('class','graticule');
+    root.append('g').attr('class','land');
+    root.append('g').attr('class','dots');
+    root.append('g').attr('class','halos');
+  }
+
+// ✅ Zoom + centrado en el nodo (misma “ventana”, menos superficie visible)
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+
+// Mercator “peta” cerca de los polos: clamp suave
+const lat = clamp(+m.lat, -80, 80);
+const lon = ((+m.lon + 540) % 360) - 180; // normaliza a [-180, 180]
+
+const zoom = (w < 420 ? 2.1 : 2.8);
+const base = Math.min(w, h) * 0.30;
+
+// ✅ Ajuste: levantar nodo (y por tanto el centro del mapa)
+const yLift = Math.round(h * 0.22);   // sube un 12% de la altura del SVG
+
+const projection = d3.geoMercator()
+  .center([lon, lat])
+  .translate([w/2, (h/2) - yLift])
+  .scale(base * zoom);
+
+
+  const path = d3.geoPath(projection);
+
+  // Graticule (igual que Mapamundi)
+  const graticule = d3.geoGraticule10();
+  const gGrat = root.select('g.graticule');
+  const gratPath = gGrat.selectAll('path').data([graticule]);
+  gratPath.enter().append('path')
+    .merge(gratPath)
+    .attr('d', path);
+
+  // Land (countries TopoJSON)
+  const countries = await miniLoadWorld();
+  const gLand = root.select('g.land');
+  const landSel = gLand.selectAll('path').data(countries.features, d => d.id);
+
+  landSel.enter().append('path')
+    .merge(landSel)
+    .attr('d', path);
+
+  landSel.exit().remove();
+
+  // Punto (dot) + halo (misma “sensación” Mapamundi)
+  const [x, y] = projection([m.lon, m.lat]);
+
+  const col = (typeof groupColor !== 'undefined' ? (groupColor.get(m.grupo) || '#aaa') : '#aaa');
+
+  const gDots = root.select('g.dots');
+  const dot = gDots.selectAll('circle.mini-dot').data([1]);
+  dot.enter().append('circle')
+    .attr('class','mini-dot')
+    .merge(dot)
+    .attr('cx', x).attr('cy', y)
+    .attr('r', 5.2)
+    .attr('fill', col)
+    .attr('filter', 'url(#dotGlow)');
+
+  const gHalos = root.select('g.halos');
+  const halo = gHalos.selectAll('circle.mini-halo').data([1]);
+  halo.enter().append('circle')
+    .attr('class','mini-halo')
+    .merge(halo)
+    .attr('cx', x).attr('cy', y)
+    .attr('r', 7.2)
+    .attr('stroke', col)
+    .attr('filter', 'url(#dotGlow)'); // evita “cuadrados” (Mapamundi usa dotGlow para halos)
+}
+
+// ⬇️ Usa GitHub Pages (más fiable que raw en embeds tipo Teachable)
+
+
 
 
 async function fetchJson(url){
-  // cache-buster suave para evitar respuestas raras cacheadas en algunos entornos
-  const u = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
+  const ctrl = new AbortController();
+  const t = setTimeout(() => ctrl.abort(), 25000); // ✅ 25s (móvil + redes lentas)
 
-  const r = await fetch(u, { cache: "no-store" });
-  if(!r.ok) throw new Error(`HTTP ${r.status} al cargar: ${url}`);
+  // ✅ cache-buster para evitar “me quedé con un 404/HTML cacheado”
+  const sep = url.includes('?') ? '&' : '?';
+  const bustUrl = `${url}${sep}v=${Date.now()}`;
 
-  const ct = (r.headers.get("content-type") || "").toLowerCase();
-  if(!ct.includes("application/json")){
-    const preview = (await r.text()).slice(0, 180);
-    throw new Error(`Respuesta no JSON (${ct || "sin content-type"}) en: ${url} · ${preview}`);
+  try{
+    const res = await fetch(bustUrl, {
+      cache: 'no-store',                 // ✅ no uses force-cache aquí
+      signal: ctrl.signal,
+      headers: { 'Accept': 'application/json' }
+    });
+
+    if(!res.ok){
+      console.warn(`No encontrado: ${url} (HTTP ${res.status})`);
+      return null;
+    }
+
+    // ✅ si GitHub Pages te devolviese HTML (caché / error), esto lo detecta
+    const ct = res.headers.get('content-type') || '';
+    if(!ct.includes('application/json')){
+      const txt = await res.text();
+      console.warn('Respuesta no-JSON en:', url, 'CT=', ct, 'Body head=', txt.slice(0,120));
+      return null;
+    }
+
+    return await res.json();
+  } finally {
+    clearTimeout(t);
+  }
+}
+
+
+
+
+
+// Escuelas disponibles en GitHub (solo para poblar el selector)
+let GH_SCHOOLS = []; // array de {id,label,color,order...} o lo que tengas
+
+// Cache de escuelas/modelos cargados desde GitHub
+const GH_SCHOOL_LOADED = new Set();   // slugs (ej: "humanista")
+const GH_MODEL_CACHE   = new Map();   // id -> modelo completo
+
+function slugify(s){
+  return String(s)
+    .toLowerCase()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g,'') // quita acentos
+    .replace(/\s+/g,'')                             // quita espacios
+    .trim();
+}
+
+// ¿Ya tienes modelos locales para esa escuela?
+function hasLocalSchoolModels(label){
+  return LOCAL_MODELS.some(m => m.grupo === label);
+}
+
+// Carga index de escuelas de GitHub (si falla, no pasa nada)
+async function loadGhSchoolsIndex(){
+  try{
+    GH_SCHOOLS = await fetchJson(gh('Core/escuelas/index.json'));
+    if (!Array.isArray(GH_SCHOOLS)) GH_SCHOOLS = [];
+  }catch(e){
+    console.warn('No se pudo cargar index de escuelas desde GitHub:', e);
+    GH_SCHOOLS = [];
+  }finally{
+    // ✅ clave: para que openModel() pueda iterar aunque uses window.GH_SCHOOLS
+    window.GH_SCHOOLS = GH_SCHOOLS;
+  }
+}
+
+
+
+
+// ✅ promesas en vuelo por escuela (evita carreras)
+const GH_SCHOOL_PENDING = new Map(); // id -> Promise
+
+// Carga una escuela desde GitHub y añade sus modelos a MODELS (solo si no existe local)
+// Carga una escuela desde GitHub y añade sus modelos a MODELS (solo si no existe local)
+async function ensureSchoolFromGitHub(schoolLabel){
+  if(!schoolLabel || String(schoolLabel).trim().toLowerCase() === "todas"){
+    return; // "todas" no es una escuela de GH_SCHOOLS
   }
 
-  return await r.json();
-}
+  // ✅ mapa de promesas "en vuelo" SIN declarar globals (evita carreras y redeclare)
+  ensureSchoolFromGitHub._pending = ensureSchoolFromGitHub._pending || new Map();
+  const PENDING = ensureSchoolFromGitHub._pending;
 
+  // Busca la escuela en el index de GitHub
+  const entry = (GH_SCHOOLS || []).find(
+    s => s.label === schoolLabel || s.id === slugify(schoolLabel)
+  );
 
-function extractIdeasFromModel(modelJson){
-  const ideas = modelJson?.ideasPrincipales;
-  if(!ideas || !Array.isArray(ideas)) return [];
-
-  if(ideas.length && typeof ideas[0] === "string"){
-    return ideas.map(s => String(s).trim()).filter(Boolean);
-  }
-
-  if(ideas.length && typeof ideas[0] === "object"){
-    return ideas.map(o => {
-      if(!o) return "";
-      const titulo = String(o.titulo ?? o.nombre ?? "").trim();
-      const cuerpo = String(
-        o.texto ??
-        o.desarrollo ??
-        o.descripcion ??
-        o.detalle ??
-        o.explicacion ??
-        o.idea ??
-        o.contenido ??
-        ""
-      ).trim();
-
-      if(titulo && cuerpo) return `${titulo}: ${cuerpo}`;
-      if(cuerpo) return cuerpo;
-      if(titulo) return titulo;
-      return "";
-    }).filter(Boolean);
-  }
-
-  return [];
-}
-
-function extractProcedimientosFromModel(modelJson){
-  const arr = modelJson?.procedimientos;
-  if(!arr || !Array.isArray(arr)) return [];
-
-  return arr.map(p => {
-    if(!p) return "";
-    const nombre = String(p.nombre ?? p.titulo ?? "").trim();
-    const texto  = String(p.texto ?? p.descripcion ?? p.detalle ?? "").trim();
-
-    // si no hay texto, al menos el nombre
-    if(nombre && texto) return `${nombre}: ${texto}`;
-    if(texto) return texto;
-    if(nombre) return nombre;
-    return "";
-  }).filter(Boolean);
-}
-
-function extractMicrosFromModel(modelJson){
-  const arr = modelJson?.micros;
-  if(!arr || !Array.isArray(arr)) return [];
-
-  return arr.map(m => {
-    if(!m) return "";
-    const nombre = String(m.nombre ?? m.titulo ?? "").trim();
-    const texto  = String(m.texto ?? m.descripcion ?? m.detalle ?? "").trim();
-
-    if(nombre && texto) return `${nombre}: ${texto}`;
-    if(texto) return texto;
-    if(nombre) return nombre;
-    return "";
-  }).filter(Boolean);
-}
-
-
-
-function setRevealedPanel(model, revealOn){
-  if(!elFrame) return;
-
-  if(!model || !revealOn){
-    // limpio
-    elFrame.removeAttribute("src");
-    elFrame.src = "about:blank";
+  if(!entry){
+    console.warn('Escuela no encontrada en GH_SCHOOLS:', schoolLabel);
     return;
   }
 
-  if(isMobile()) return; // en móvil no usamos el iframe lateral
-elFrame.src = modelosEmbedUrl(model.id);
+  // Ya cargada
+  if (GH_SCHOOL_LOADED.has(entry.id)) return;
 
-}
-
-  function setStatus(html, on=true){
-    elStatus.innerHTML = html;
-    elStatus.classList.toggle("is-on", !!on);
+  // ✅ Si ya se está cargando, espera a esa misma carga
+  if (PENDING.has(entry.id)){
+    return PENDING.get(entry.id);
   }
 
-  function lockOptions(){
-    for(const b of elAns.querySelectorAll("button.opt")){
-      b.disabled = true;
+  // ✅ Single-flight real
+  const promise = (async () => {
+
+    // usa entry.file
+const school = await fetchJson(gh('Core/' + entry.file));
+
+
+
+    const summaries = (school.modelos || []).map(m => ({
+      ...m,
+      grupo: school.label || schoolLabel
+    }));
+
+    // Añade a MODELS sin duplicar
+    const existingIds = new Set(MODELS.map(m => String(m.id)));
+    for (const m of summaries){
+      const mid = String(m.id);
+      if (!existingIds.has(mid)){
+        MODELS.push(m);
+        existingIds.add(mid);
+      }
     }
+
+GH_SCHOOL_LOADED.add(entry.id);
+
+// ✅ IMPORTANTÍSIMO: el pool “completo” debe incluir lo que acabas de añadir
+window.MODELS_ALL = MODELS.filter(mm => !mm.hideInModels);
+
+// ✅ Asegura visibilidad antes de devolver (micro-wait)
+await Promise.resolve();
+
+
+  })();
+
+  PENDING.set(entry.id, promise);
+
+  try{
+    return await promise;
+  }finally{
+    PENDING.delete(entry.id);
   }
-function isMobile(){
-  return window.matchMedia && window.matchMedia("(max-width: 900px)").matches;
 }
 
-function openFsPanel(model, isCorrect){
 
-  if(!isMobile()) return;
-  if(!model) return;
 
-  const label = escapeHtml(model.label || model.id || "—");
-  const autores = escapeHtml(model.autores || "—");
-  const desc = escapeHtml(DESC_BY_MODEL[model.id] || "—");
-// texto resultado
-const resultHtml = isCorrect
-  ? `
-    <div class="fsResultRow">
-      <div class="fsResultLeft">
-        <span class="fsResultIcon" aria-hidden="true">✓</span>
-        <div class="fsResultTitle">Correcto</div>
-      </div>
-      <div class="fsResultPill">+1</div>
+// Si un modelo es “resumen” (viene de GitHub) lo expandimos a ficha completa
+async function ensureModelFull(m){
+  if(!m) return m;
+
+  // ✅ ya es "full" si tiene campos extensos típicos
+  const isFull = (obj) =>
+    !!obj &&
+    (typeof obj.descripcion === 'string' && obj.descripcion.trim().length > 0) &&
+    (Array.isArray(obj.procedimientos) || Array.isArray(obj.micros) || Array.isArray(obj.influencias));
+
+  if (isFull(m)) return m;
+
+  // ✅ single-flight + cache SIN declarar globals
+  ensureModelFull._pending = ensureModelFull._pending || new Map(); // id -> Promise
+  const PENDING = ensureModelFull._pending;
+
+  const id = String(m.id ?? '').trim();
+  if (!id) return m;
+
+  // cache ya cargado
+  if (typeof GH_MODEL_CACHE !== 'undefined' && GH_MODEL_CACHE.has(id)){
+    const cached = GH_MODEL_CACHE.get(id);
+    return isFull(cached) ? cached : cached; // si por lo que sea cacheó incompleto, seguirá intentando abajo
+  }
+
+  // si ya hay una carga en vuelo, espera
+  if (PENDING.has(id)){
+    return PENDING.get(id);
+  }
+
+  const p = (async () => {
+    // si no hay file, no se puede cargar nada
+    if (!m.file){
+      console.warn('⚠️ Modelo sin "file":', m);
+      return m;
+    }
+
+ const file = String(m.file || '').trim();
+const url = gh(`Core/${file}`);
+
+// ✅ Fallback por si "file" trae la carpeta en minúsculas y en GitHub está con mayúscula (case-sensitive)
+const tryUrls = [url];
+
+if (file.startsWith('modelos/')){
+  const parts = file.split('/');
+  // parts[0] = 'modelos', parts[1] = carpeta (a veces viene en minúsculas)
+  if (parts[1]){
+    const fixedFolder = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
+    const altFile = ['modelos', fixedFolder, ...parts.slice(2)].join('/');
+    tryUrls.push(gh(`Core/${altFile}`));
+  }
+}
+
+
+    // ✅ reintentos con backoff (esto es lo que te elimina el “segundo clic”)
+    const delays = [0, 250, 700, 1500]; // ms
+    let lastErr = null;
+
+    for (let i = 0; i < delays.length; i++){
+      if (delays[i]) await new Promise(r => setTimeout(r, delays[i]));
+      try{
+        let full = null;
+let last = null;
+
+for (const u of tryUrls){
+  try{
+    full = await fetchJson(u);
+    if(full){
+      last = u;
+      break;
+    }
+  }catch(e){
+    // guardamos error y seguimos probando
+    last = u;
+  }
+}
+
+if(!full) throw new Error(`No se pudo cargar JSON del modelo. Probadas: ${tryUrls.join(' | ')}`);
+
+
+        // mezcla segura: full gana, pero mantenemos grupo/label si vinieran mejor en resumen
+        const merged = { ...m, ...full };
+        if (!merged.grupo) merged.grupo = m.grupo;
+        if (!merged.label) merged.label = m.label;
+
+        // guarda en cache
+        if (typeof GH_MODEL_CACHE !== 'undefined') GH_MODEL_CACHE.set(id, merged);
+
+        return merged;
+      }catch(e){
+        lastErr = e;
+      }
+    }
+
+    console.error('❌ No se pudo cargar JSON del modelo (tras reintentos):', { id, url, file: m.file }, lastErr);
+    return m; // no rompemos UI
+  })();
+
+  PENDING.set(id, p);
+  try{
+    return await p;
+  }finally{
+    PENDING.delete(id);
+  }
+}
+
+
+
+    // =========================================================
+    // 3) UI: selector de escuela + lista de modelos
+    // =========================================================
+    const schoolSelect = document.getElementById('schoolSelect');
+    const modelsListEl = document.getElementById('modelsList');
+    const countLine = document.getElementById('countLine');
+    const modelInfoEl = document.getElementById('modelInfo');
+// ================= MODO LECTURA PANEL DERECHO (SUAVE) =================
+
+const leftPanel  = document.querySelector('.panel.left');
+const rightPanel = document.querySelector('.panel.right');
+// ===== FULLSCREEN del panel de info (panel derecho) =====
+(function setupInfoFullscreen(){
+  const modelInfoEl = document.getElementById('modelInfo');
+  if (!modelInfoEl) return;
+
+  // Evita duplicados
+  if (document.getElementById('btnInfoFull')) return;
+
+  const btn = document.createElement('button');
+  btn.id = 'btnInfoFull';
+  btn.className = 'mp-fullBtn';
+  btn.type = 'button';
+  btn.setAttribute('aria-label', 'Pantalla completa');
+
+  const iconExpand = `
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+  const iconClose = `
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M6 6l12 12M18 6L6 18"
+        stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>`;
+
+  function syncIcon(){
+    const on = document.body.classList.contains('infoFull');
+    btn.innerHTML = on ? iconClose : iconExpand;
+    btn.setAttribute('aria-label', on ? 'Cerrar' : 'Pantalla completa');
+  }
+
+btn.addEventListener('click', () => {
+  document.body.classList.toggle('infoFull');
+
+  // Opcional: al abrir, arranca arriba del panel
+  if (document.body.classList.contains('infoFull')){
+    const rp = document.querySelector('.panel.right');
+    if (rp) rp.scrollTop = 0;
+
+    // al entrar en fullscreen: recalcula observadores
+    if (window.__SMH) window.__SMH.rescan();
+  }else{
+    // al salir: oculta header
+
+  }
+
+  syncIcon();
+});
+
+
+  // ESC para cerrar (útil en desktop)
+  window.addEventListener('keydown', (e) => {
+  if (e.key === 'Escape' && document.body.classList.contains('infoFull')){
+  document.body.classList.remove('infoFull');
+  if (window.__SMH) window.__SMH.hide();
+  syncIcon();
+}
+
+  });
+
+const host = document.querySelector('.panel.right');
+if (!host) return;
+// ===== Sticky header (solo en fullscreen y cuando no se ve mp-title/mp-author) =====
+let __smh = document.getElementById('stickyModelHeader');
+if (!__smh){
+  __smh = document.createElement('div');
+  __smh.id = 'stickyModelHeader';
+__smh.innerHTML = `
+  <div class="smh-overlay">
+    <span class="smh-dot"></span>
+    <div class="smh-text">
+      <div class="smh-title" id="smhTitle">—</div>
+      <div class="smh-author" id="smhAuthor"></div>
     </div>
-    <span class="small">Punto añadido</span>
-  `
-  : `
-    <div class="fsResultRow">
-      <div class="fsResultLeft">
-        <span class="fsResultIcon" aria-hidden="true">×</span>
-        <div class="fsResultTitle">Incorrecto</div>
-      </div>
-      <div class="fsResultPill">-1 vida</div>
-    </div>
-    <span class="small">La respuesta era: <b>${escapeHtml(model.label || model.id || "—")}</b></span>
-  `;
-
-fsResult.className = "fsResult " + (isCorrect ? "ok" : "bad");
-fsResult.innerHTML = resultHtml;
-
-  // (iframe) ya no necesitamos foto/autor/grupo aquí
-
-
-fsBody.innerHTML = `
-  <iframe
-    class="fsIframe"
-    title="Detalle del modelo"
-    loading="eager"
-    referrerpolicy="no-referrer"
-    src="${modelosEmbedUrl(model.id)}"
-  ></iframe>
+  </div>
 `;
 
 
-
-  fsOverlay.classList.add("is-on");
-  fsOverlay.setAttribute("aria-hidden","false");
-
-document.documentElement.style.overflow = "hidden";
-document.body.style.overflow = "hidden";
-
-/* ✅ SIEMPRE ARRIBA: resetea el scroll del overlay */
-fsBody.scrollTop = 0;
-// por si el navegador aplica el scroll después del repaint:
-requestAnimationFrame(() => { fsBody.scrollTop = 0; });
-
+  host.insertBefore(__smh, host.firstChild);
 }
 
+let __io = null;
 
-function closeFsPanel(){
-  fsOverlay.classList.remove("is-on");
-  fsOverlay.setAttribute("aria-hidden","true");
-  document.documentElement.style.overflow = "";
-  document.body.style.overflow = "";
+function setupStickyHeaderObservers(){
+  if (__io){ try{ __io.disconnect(); }catch(e){} __io = null; }
 
-  // ✅ limpia iframe móvil
-  if(fsBody) fsBody.innerHTML = "";
-}
+  const titleEl  = document.querySelector('#modelInfo .mp-title');
+  const authorEl = document.querySelector('#modelInfo .mp-author');
 
-function updateHud(){
-  elScore.textContent = score;
-  elRounds.textContent = rounds;
-  elLives.textContent = lives;
-  elStreak.textContent = streak;
-}
-  /* =========================
-     Filtro por escuela
-     ========================= */
-  function populateSchoolFilter(){
-    if(!elSchoolFilter) return;
-
-    // conservar "todas" y reconstruir el resto
-    const keep = `<option value="todas">Todas</option>`;
-
-    const grupos = Array.from(new Set((MODELS_ALL || []).map(m => m.grupo).filter(Boolean)))
-      .sort((a,b)=> a.localeCompare(b, "es"));
-
-    elSchoolFilter.innerHTML = keep + grupos.map(g =>
-      `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`
-    ).join("");
-
-    elSchoolFilter.value = CURRENT_SCHOOL || "todas";
-  }
-
-  function applySchoolFilter(){
-    const v = (CURRENT_SCHOOL || "todas");
-
-    if(v === "todas"){
-      MODELS = MODELS_ALL.slice();
-      ITEMS  = ITEMS_ALL.slice();
-    }else{
-      MODELS = MODELS_ALL.filter(m => m.grupo === v);
-      ITEMS  = ITEMS_ALL.filter(it => it.grupo === v);
-    }
-
-    // si no hay suficiente para 4 opciones, avisamos
-    if(MODELS.length < 4){
-      elIdea.textContent = "No hay suficientes modelos en esta escuela para jugar (mínimo 4).";
-      elAns.innerHTML = "";
-      setStatus(`Selecciona otra escuela o <b>Todas</b>.`, true);
-      setRevealedPanel(null, false);
-      return;
-    }
-
-    if(!ITEMS.length){
-      elIdea.textContent = "No he encontrado ideas/procedimientos/micros en esta escuela.";
-      elAns.innerHTML = "";
-      setStatus(`Selecciona otra escuela o <b>Todas</b>.`, true);
-      setRevealedPanel(null, false);
-      return;
-    }
-
-    resetGame();
-  }
-
-  /* =========================
-     Juego
-     ========================= */
- function buildQuestion(){
-  if(!ITEMS.length){
-    elIdea.textContent = "No he encontrado ideas/procedimientos/micros en los modelos cargados.";
-    elAns.innerHTML = "";
-    setStatus("Revisa que los JSON tengan <b>ideasPrincipales</b>, <b>procedimientos</b> o <b>micros</b>.", true);
-    setRevealedPanel(null, false);
-if(pillYear) pillYear.textContent = "—";
-if(pillCode) pillCode.textContent = "—";
-
-    return;
-  }
-
-  const item = pickOne(ITEMS);
-  const correct = MODELS.find(m => m.id === item.modelId);
-  if(!correct) return buildQuestion();
-
-  const pool = MODELS.filter(m => m.id !== correct.id);
-  const distractors = shuffle(pool).slice(0, 3);
-  const options = shuffle([correct, ...distractors]);
-
-  CURRENT = {
-    kind: item.kind,
-    text: item.text,
-    correctId: correct.id,
-    correctLabel: correct.label,
-    correctAutores: correct.autores,
-    correctGrupo: correct.grupo,
-    correctYear: correct.year,
-    options
-  };
-
-  setSchoolColor(correct.grupo);
-  setRandomDotColor();
-
-  pillYear.textContent = correct.year ? String(correct.year) : "—";
-
-  // pill de tipo
-const kindLabel = (CURRENT.kind === "idea") ? "idea"
-                : (CURRENT.kind === "procedimiento") ? "procedimiento"
-                : "micro-intervención";
-pillCode.textContent = kindLabel;
-
-
-elIdea.textContent = limpiarAutorFinal(CURRENT.text);
-
-
-  elAns.innerHTML = options.map(m => {
-    const label = escapeHtml(m.label || m.id);
-    const grupo = escapeHtml(m.grupo || "");
-    return `<button class="opt" data-id="${escapeHtml(m.id)}">
-      ${label}<span style="display:block; margin-top:4px; font-weight:700; opacity:.72; font-size:12px;">${grupo}</span>
-    </button>`;
-  }).join("");
-
-  setStatus("", false);
-  setRevealedPanel(correct, false);
-}
-
-
-  function onChoose(id){
-    if(!CURRENT) return;
-
-rounds += 1;
-
-const correct = CURRENT.correctId === id;
-
-
-    lockOptions();
-
-    // marcar
-    for(const b of elAns.querySelectorAll("button.opt")){
-      const bid = b.getAttribute("data-id");
-      if(bid === CURRENT.correctId) b.classList.add("correct");
-      if(bid === id && !correct) b.classList.add("wrong");
-    }
-
-if(correct){
-
-  score += 1;
-  streak += 1;
-
-  if(streak > bestStreak) bestStreak = streak;
-updateHud();
-
-  // cada 5 aciertos → +1 vida (máx)
-  if(streak % 5 === 0 && lives < maxLives){
-    lives += 1;
-    setStatus(`💚 Vida extra.<span class="small">Racha ${streak}</span>`, true);
-  }else{
-    setStatus(`✅ Correcto.<span class="small">Racha ${streak}</span>`, true);
-  }
-
-}else{
-
-lives -= 1;
-streak = 0;
-
-updateHud();
-
-setStatus(`❌ Fallo.<span class="small">Pierdes 1 vida</span>`, true);
-
-if(lives <= 0){
-  gameOver();
+// ✅ Si estamos en vista ESCUELA, el sticky NO debe existir nunca
+const mi = document.getElementById('modelInfo');
+if (mi && mi.classList.contains('school-view')){
+  __smh.classList.remove('is-on');
+  if (__io){ try{ __io.disconnect(); }catch(e){} __io = null; }
   return;
 }
 
-}
-
-
-// revelar
-const model = MODELS.find(m => m.id === CURRENT.correctId);
-setRevealedPanel(model, true);
-
-// ✅ en móvil: abrir panel derecho a pantalla completa (sin clonar DOM)
-openFsPanel(model, correct);
-
-
-  }
-function gameOver(){
-
-  // guardar récords
-  if(score > bestScore){
-    bestScore = score;
-    localStorage.setItem("tmps_bestScore", bestScore);
-  }
-  if(bestStreak > bestStreakEver){
-    bestStreakEver = bestStreak;
-    localStorage.setItem("tmps_bestStreak", bestStreakEver);
-  }
-
-  elAns.innerHTML = "";
-
-  // headline (más limpio)
-  elIdea.classList.add("is-gameover");
-  elIdea.innerHTML = `
-    <div>Game Over</div>
-    <div class="goSub">
-      Tu récord: <b>${bestScore}</b> · Mejor racha histórica: <b>${bestStreakEver}</b>
-    </div>
-  `;
-
-  // tarjeta de resultado
-  elStatus.classList.add("gameover");
-  setStatus(`
-    <div class="goTop">
-      <div class="goBadge">Fin de partida</div>
-      <div class="goMeta">Vuelve a intentarlo y rompe tu récord</div>
-    </div>
-
-    <div class="goStats">
-      <div class="goStat"><div class="k">Puntos</div><div class="v">${score}</div></div>
-      <div class="goStat"><div class="k">Mejor racha</div><div class="v">${bestStreak}</div></div>
-      <div class="goStat"><div class="k">Récord</div><div class="v">${bestScore}</div></div>
-    </div>
-
-    <div class="goActions">
-      <button class="btn btnSmall" id="btnPlayAgain">Jugar otra vez</button>
-      <button class="btn btnSmall" id="btnCopyResult">Copiar resultado</button>
-    </div>
-
-    <div class="goFine">
-      Tip: Explora los modelos para mejorar tus puntuaciones
-    </div>
-  `, true);
-
-  setRevealedPanel(null, false);
-  closeFsPanel();
-}
-
-
-function resetGame(){
-
-  score = 0;
-  rounds = 0;
-  lives = 3;
-  streak = 0;
-  bestStreak = 0;
-
-  updateHud();
-
-  // limpiar estilos game over
-  elIdea.classList.remove("is-gameover");
-  elStatus.classList.remove("gameover");
-
-  closeFsPanel();
-  buildQuestion();
+// ✅ Si aún no hay mp-title/mp-author (render en curso), no fuerces reintentos
+if (!titleEl || !authorEl){
+  __smh.classList.remove('is-on');
+  if (__io){ try{ __io.disconnect(); }catch(e){} __io = null; }
+  return;
 }
 
 
 
-  /* =========================
-     Carga inicial
-     ========================= */
-  async function init(){
-    try{
-      elIdea.textContent = "Cargando modelos…";
-setStatus(`Origen: <b>${location.origin}</b> · Href: <b>${location.href}</b>`, true);
+
+  let titleVisible = true;
+  let authorVisible = true;
+
+const update = () => {
+  const mi = document.getElementById('modelInfo');
+
+  // ✅ Nunca muestres sticky en escuela
+  if (mi && mi.classList.contains('school-view')){
+    __smh.classList.remove('is-on');
+    return;
+  }
+
+  const show = (!titleVisible && !authorVisible);
+  __smh.classList.toggle('is-on', show);
+};
 
 
-     const [escuelasIndex, fotosJson] = await Promise.all([
-  fetchJson(ESCUELAS_INDEX),
-  fetchJson(FOTOS_JSON_URL)
-]);
+  __io = new IntersectionObserver((entries) => {
+    for (const en of entries){
+      if (en.target === titleEl)  titleVisible  = en.isIntersecting;
+      if (en.target === authorEl) authorVisible = en.isIntersecting;
+    }
+    update();
+  }, { root: host, threshold: 0.01 });
 
-PHOTO_BY_MODEL = normalizePhotosJson(fotosJson);
+  __io.observe(titleEl);
+  __io.observe(authorEl);
 
-// 1) escuelasIndex suele ser array de {id,label,file,...}
-const schools = Array.isArray(escuelasIndex) ? escuelasIndex : (escuelasIndex.escuelas || []);
+  // estado inicial
+  update();
+}
 
-// 2) cargar cada escuela (Core/{entry.file}) y acumular school.modelos[]
-const schoolJsons = await Promise.allSettled(
-  schools
-    .filter(s => s && s.file)
-    .map(s => fetchJson(gh(`Core/${String(s.file).replace(/^\/+/,"")}`)))
-);
+// Exponemos una mini API para que el render del modelo actualice el texto
+window.__SMH = {
+  setTitle: (txt) => {
+    const t = document.getElementById('smhTitle');
+    if (t) t.textContent = txt || '—';
+  },
+  setAuthor: (txt) => {
+  const a = document.getElementById('smhAuthor');
+  if (!a) return;
+  const t = (txt || '').trim();
+  a.textContent = t;
+  a.style.display = t ? 'block' : 'none';
+},
 
-const summaries = [];
-for (const res of schoolJsons){
-  if (res.status !== "fulfilled") continue;
-  const school = res.value;
-  const modelos = Array.isArray(school?.modelos) ? school.modelos : [];
-  for (const m of modelos){
-    if (!m?.id || !m?.file) continue;
-    summaries.push({
-      id: m.id,
-      label: m.label || m.nombre || m.id,
-      grupo: m.grupo || school.label || school.id || "",
-      year: m.year ?? "",
-      autores: m.autores || "",
-      file: m.file
+  rescan: () => setupStickyHeaderObservers(),
+ hide: () => { __smh.classList.remove('is-on'); }
+
+};
+
+// ✅ 1) El botón vive fuera del panel (para que "fixed" sea de verdad)
+document.body.appendChild(btn);
+
+// ✅ 2) Lo anclamos visualmente a la esquina sup. derecha del panel
+function placeBtn(){
+  // si no hay panel, no hacemos nada
+  const rp = document.querySelector('.panel.right');
+  if (!rp) return;
+
+  const r = rp.getBoundingClientRect();
+  const pad = 12;  // mismo padding visual que quieres
+  const size = 34; // mismo tamaño del botón
+
+  // colocación en viewport
+  btn.style.top  = `${Math.round(r.top + pad)}px`;
+  btn.style.left = `${Math.round(r.right - pad - size)}px`;
+}
+
+placeBtn();
+window.addEventListener('resize', placeBtn, { passive:true });
+window.addEventListener('scroll', placeBtn, { passive:true }); // por si el contenedor externo se desplaza
+
+// cuando haces toggle a fullscreen cambia el rect: recolocamos
+const _oldSync = syncIcon;
+syncIcon = function(){
+  _oldSync();
+  placeBtn();
+};
+
+syncIcon();
+
+
+})();
+
+/* ===== DETECTAR STICKY PEGADO ARRIBA ===== */
+if (leftPanel){
+  leftPanel.addEventListener('scroll', () => {
+    const sticky = leftPanel.querySelector('.schoolSticky');
+    if (!sticky) return;
+
+    const r = sticky.getBoundingClientRect();
+    const p = leftPanel.getBoundingClientRect();
+
+    // Si ya está pegado arriba
+    const stuck = Math.abs(r.top - p.top) < 2;
+
+    sticky.classList.toggle('stuck', stuck);
+  }, { passive:true });
+}
+
+// ================= FIN MODO LECTURA (SUAVE) =================
+
+
+    let currentSchool = null;
+    let currentModelId = null;
+
+    function uniq(arr){ return [...new Set(arr.filter(Boolean))]; }
+function showLanding(){
+  const ov = document.getElementById('landingOverlay');
+  if (!ov) return;
+
+  ov.classList.add('is-on');
+  document.body.classList.add('landing-on');
+
+  ov.setAttribute('aria-hidden', 'false');
+
+  // botón "Entrar" (por si alguien quiere cerrar sin elegir)
+  const close = document.getElementById('landingClose');
+  if (close && !close.__bound){
+    close.__bound = true;
+    close.addEventListener('click', () => hideLanding(), { passive:true });
+  }
+}
+
+function hideLanding(){
+  const ov = document.getElementById('landingOverlay');
+  if (!ov) return;
+  ov.classList.remove('is-on');
+  document.body.classList.remove('landing-on');
+
+  ov.setAttribute('aria-hidden', 'true');
+}
+function normSchoolName(s){
+  return String(s ?? '')
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g,'')  // quita acentos
+    .toLowerCase();
+}
+
+// Cachea conteos para no refetchear
+const LANDING_COUNT_CACHE = new Map(); // key: school id/label normalizado -> number
+
+async function landingCountForSchool(label){
+  const target = normSchoolName(label);
+
+  // 0) Si ya lo tengo cacheado
+  if (LANDING_COUNT_CACHE.has(target)) return LANDING_COUNT_CACHE.get(target);
+
+  // 1) Fallback inmediato: locales (sirve mientras carga GH)
+  const localN = (LOCAL_MODELS || []).filter(m => normSchoolName(m.grupo) === target).length;
+
+  // 2) Intento GitHub: buscar la entrada del índice (solo trae file)
+  const entry = (GH_SCHOOLS || []).find(s => {
+    const name = s.label ?? s.id ?? '';
+    return normSchoolName(name) === target;
+  });
+
+  if (!entry || !entry.file){
+    LANDING_COUNT_CACHE.set(target, localN);
+    return localN;
+  }
+
+  try{
+    // Carga el archivo real de la escuela y cuenta sus modelos
+    const school = await fetchJson(gh(`Core/${entry.file}`));
+    const ghN = Array.isArray(school?.modelos) ? school.modelos.length : 0;
+
+    const n = ghN || localN;
+    LANDING_COUNT_CACHE.set(target, n);
+    return n;
+  }catch(e){
+    console.warn('No se pudo contar modelos GH para', label, e);
+    LANDING_COUNT_CACHE.set(target, localN);
+    return localN;
+  }
+}
+
+
+function buildLandingSchools(){
+  const grid = document.getElementById('landingGrid');
+  if (!grid) return;
+
+  // Sacamos escuelas del propio <select> (así coincide 100% con lo disponible)
+  const opts = Array.from(schoolSelect?.options || []);
+  const schools = opts.map(o => o.value).filter(Boolean);
+
+ grid.innerHTML = schools.map(label => {
+  const col = groupColor.get(label) || '#D9AA3F';
+
+  // Pinta placeholder; luego lo rellenamos async
+return `
+  <div class="landingSchool" data-school="${escapeHtml(label)}" style="--schoolColor:${col}">
+    <div class="landingSchoolName">${escapeHtml(label)}</div>
+
+    <div class="landingSchoolMeta">
+      <span class="landingCount" data-count-for="${escapeHtml(label)}">…</span>
+      <span class="landingCountLabel">modelos</span>
+    </div>
+  </div>
+`;
+
+}).join('');
+
+// Relleno async de conteos (GitHub real)
+(async () => {
+  for (const label of schools){
+    const n = await landingCountForSchool(label);
+    const el = grid.querySelector(`.landingCount[data-count-for="${CSS.escape(label)}"]`);
+   if (el){
+  const nn = Number(n) || 0;
+  el.textContent = String(nn);
+
+  const lab = el.closest('.landingSchool')?.querySelector('.landingCountLabel');
+  if (lab) lab.textContent = (nn === 1) ? 'modelo' : 'modelos';
+}
+
+  }
+})();
+
+
+  if (!grid.__bound){
+    grid.__bound = true;
+    grid.addEventListener('click', async (evt) => {
+      const card = evt.target.closest('.landingSchool');
+      if (!card) return;
+
+      const label = card.getAttribute('data-school');
+      if (!label) return;
+
+      // 1) seleccionar en el desplegable
+      schoolSelect.value = label;
+
+      // 2) disparar el flujo normal
+      schoolSelect.dispatchEvent(new Event('change', { bubbles:true }));
+
+      // 3) ocultar landing
+      hideLanding();
     });
   }
 }
 
-// 3) MODELS = lista final con url real al JSON del modelo
-MODELS = summaries.map(m => ({
-  ...m,
-  url: gh(`Core/${String(m.file).replace(/^\/+/,"")}`)
-}));
+ function buildSchoolOptions(){
+  const localSchools = uniq(LOCAL_MODELS.map(m => m.grupo));
+  const ghSchools = (GH_SCHOOLS || []).map(s => s.label || s.id).filter(Boolean);
 
-      // ahora cargamos JSON de modelos para extraer ideas
-      elIdea.textContent = `Cargando ideas… (${MODELS.length} modelos)`;
+  // unión sin duplicados
+  const set = new Set([...localSchools, ...ghSchools]);
+ const schoolOrder = [
+  'Psicoanálisis',
+  'Conductismo',
+  'Humanista',
+  'Cognitivo',
+  'Sistémico',
+  'Constructivista',
+  'Integrativo',
+  'Transversal',
+  'Otros'
+];
 
-      const modelJsons = await Promise.allSettled(
-        MODELS.map(m => fetchJson(m.url))
-      );
+const orderMap = new Map(schoolOrder.map((s,i)=>[s,i]));
 
-     ITEMS = [];
-
-for(let i=0;i<modelJsons.length;i++){
-  const res = modelJsons[i];
-  if(res.status !== "fulfilled") continue;
-
-  const m = MODELS[i];
-  const mj = res.value;
-if(mj && typeof mj.descripcion === "string"){
-  DESC_BY_MODEL[m.id] = mj.descripcion.trim();
-}
-
-  const ideas = extractIdeasFromModel(mj);
-  const procs = extractProcedimientosFromModel(mj);
-  const micros = extractMicrosFromModel(mj);
-
-  // helper para meter items
-  const pushItems = (kind, arr) => {
-    for(const t of (arr || [])){
-      const clean = String(t).trim();
-      if(clean.length < 8) continue;
-
-      ITEMS.push({
-        kind,
-        modelId: m.id,
-        modelLabel: m.label,
-        grupo: m.grupo,
-        year: m.year,
-        autores: m.autores,
-        text: clean
-      });
-    }
-  };
-
-  pushItems("idea", ideas);
-  pushItems("procedimiento", procs);
-  pushItems("micro", micros);
-}
-
-
-      if(!MODELS.length){
-        elIdea.textContent = "No he podido construir la lista de modelos desde el index.";
-        setStatus("Ajusta MODELS_INDEX_URL y revisa el formato del index.json.", true);
-        return;
-      }
-
-  if(!ITEMS.length){
-  elIdea.textContent = "No he encontrado ideas/procedimientos/micros en los JSON cargados.";
-  setStatus("Verifica que tus modelos tengan <b>ideasPrincipales</b>, <b>procedimientos</b> o <b>micros</b>.", true);
-  return;
-}
-
-      // ✅ guardar pools completos
-      MODELS_ALL = MODELS.slice();
-      ITEMS_ALL  = ITEMS.slice();
-
-      // ✅ poblar selector y aplicar filtro inicial
-      populateSchoolFilter();
-      CURRENT_SCHOOL = (elSchoolFilter?.value || "todas");
-      applySchoolFilter();
-
-    }catch(err){
-      console.error(err);
-      elIdea.textContent = "Error cargando datos.";
-      setStatus(`Fallo: <b>${escapeHtml(err?.message || String(err))}</b><span class="small">Revisa URLs, CORS y rutas.</span>`, true);
-    }
-  }
-
-  // eventos
- // eventos
-document.addEventListener("click", (e)=>{
-  const b = e.target.closest?.("button.opt");
-  if(!b) return;
-  if(b.disabled) return;
-  onChoose(b.getAttribute("data-id"));
+const schools = [...set].sort((a,b)=>{
+  const ia = orderMap.has(a) ? orderMap.get(a) : 999;
+  const ib = orderMap.has(b) ? orderMap.get(b) : 999;
+  return (ia - ib) || a.localeCompare(b,'es');
 });
-document.addEventListener("click", async (e)=>{
-  const t = e.target;
 
-  if(t && t.id === "btnPlayAgain"){
-    resetGame();
+
+  schoolSelect.innerHTML = schools
+    .map(g => `<option value="${escapeHtml(g)}">${escapeHtml(g)}</option>`)
+    .join('');
+
+  currentSchool = schools[0] ?? null;
+  schoolSelect.value = currentSchool ?? '';
+}
+
+
+    function filteredModelsBySchool(grupo){
+      return MODELS
+        .filter(m => m.grupo === grupo)
+        .sort((a,b) => (+a.year||0) - (+b.year||0) || String(a.label).localeCompare(String(b.label)));
+    }
+
+ function renderModelsList(){
+
+  const list = filteredModelsBySchool(currentSchool);
+
+  modelsListEl.style.setProperty('--schoolColor', groupColor.get(currentSchool) || '#D9AA3F');
+
+
+  countLine.innerHTML = `
+    <span class="count-n">${list.length}</span>
+    <span class="count-txt">modelos/marcos en</span>
+    <span class="count-school">“${escapeHtml(currentSchool)}”</span>
+  `;
+
+  if(!list.length){
+    modelsListEl.innerHTML =
+      `<div class="subtitle" style="margin:10px 0 0 0">No hay modelos en esta escuela todavía.</div>`;
     return;
   }
 
-  if(t && t.id === "btnCopyResult"){
-    const text =
-      `TMPS Quiz — Resultado\n` +
-      `Puntos: ${score}\n` +
-      `Mejor racha (partida): ${bestStreak}\n` +
-      `Récord: ${bestScore}`;
+  // 1) Render lista
+  modelsListEl.innerHTML = list.map(m => {
+    const active = (String(m.id) === String(currentModelId)) ? 'active' : '';
+    const safeId = encodeURIComponent(String(m.id ?? '').trim());
 
-    try{
-      await navigator.clipboard.writeText(text);
-      setStatus(elStatus.innerHTML + `<div class="goFine">✅ Copiado al portapapeles</div>`, true);
-    }catch(err){
-      setStatus(elStatus.innerHTML + `<div class="goFine">⚠️ No he podido copiar (permiso del navegador)</div>`, true);
+const marcoClass = m && m.isMarco ? 'is-marco' : '';
+const marcoTag = (m && m.isMarco)
+ ? `<div class="mi-marcoTag" aria-label="Marco">
+       <span class="mi-marcoTxt">MARCO</span>
+     </div>`
+
+  : '';
+
+return `
+  <div class="mi-item ${active} ${marcoClass}" data-id="${safeId}">
+    <div class="mi-top">
+      <div class="mi-title">${escapeHtml(m.label ?? '—')}</div>
+      <div class="mi-year">${escapeHtml(m.year ?? '—')}</div>
+    </div>
+    <div class="mi-sub">${escapeHtml(m.autores ?? '—')}</div>
+
+    ${marcoTag}
+  </div>
+`;
+
+  }).join('');
+
+  // 2) Delegación de eventos (se engancha una sola vez)
+  if(!modelsListEl.__boundClick){
+    modelsListEl.__boundClick = true;
+
+    modelsListEl.addEventListener('click', async (evt) => {
+      const item = evt.target.closest('.mi-item');
+      if(!item) return;
+
+      const raw = item.getAttribute('data-id') || '';
+      const id = decodeURIComponent(raw);
+
+      // evita doble clic accidental mientras carga
+      if (modelsListEl.__loading) return;
+      modelsListEl.__loading = true;
+
+      try{
+        await openModel(id);
+      }catch(err){
+        console.error('openModel falló:', id, err);
+      }finally{
+        modelsListEl.__loading = false;
+      }
+    });
+  }
+}
+
+
+function renderSchoolInfo(grupo){
+  if(!grupo){
+    renderModelInfo(null);
+    return;
+  }
+
+  const col = groupColor.get(grupo) || '#ffffff';
+const info = SCHOOL_INFO[grupo] || {};
+const subtitle = info.subtitle || '—';
+const desc = info.desc || 'Aún no has definido la descripción de esta escuela.';
+const keys = info.keys || [];
+
+  // Tinte del panel derecho como ya haces con modelos
+  const rightPanel = document.querySelector('.panel.right');
+  if (rightPanel){
+    rightPanel.style.setProperty('--panelGlow', hexToRgba(col, 0.18));
+  }
+
+  // Datos dinámicos desde tus MODELS
+  const list = filteredModelsBySchool(grupo);
+  const n = list.length;
+
+  const first = list
+    .filter(m => m && m.year)
+    .sort((a,b)=> (+a.year||0) - (+b.year||0))[0];
+
+  const firstLine = first
+    ? `${escapeHtml(first.year)} · ${escapeHtml(first.label ?? '—')} (${escapeHtml(first.autores ?? '—')})`
+    : '—';
+modelInfoEl.classList.add('school-view');
+modelInfoEl.style.setProperty('--schoolColor', col);
+// ✅ IMPORTANTE: actualizar variables globales (si no, se hereda el color del último modelo)
+document.documentElement.style.setProperty('--schoolColor', col);
+document.documentElement.style.setProperty('--panelGlow', hexToRgba(col, 0.16));
+
+// ✅ IMPORTANTE: en vista “escuela” NO queremos sticky con el título del último modelo
+if (window.__SMH){
+  window.__SMH.setTitle('');
+  window.__SMH.setAuthor('');
+  window.__SMH.hide?.();        // si existe
+  const el = document.getElementById('stickyModelHeader');
+  if (el) el.classList.remove('is-on');
+}
+
+  modelInfoEl.innerHTML = `
+    <span class="mp-tag" style="color:${col};border-color:${col}">
+      ${escapeHtml(grupo)}
+    </span>
+
+    <div class="school-header">
+  <div class="school-eyebrow">Escuela psicoterapéutica</div>
+  <div class="school-title">${escapeHtml(grupo)}</div>
+  
+</div>
+
+
+    <div class="mp-meta">
+      <span class="mp-pill">${n} modelo(s)</span>
+      <span class="mp-pill">Primer modelo: ${firstLine}</span>
+    </div>
+
+  <div class="mp-desc">
+  <div style="font-weight:700;margin-bottom:6px;">${escapeHtml(subtitle)}</div>
+  <div>${escapeHtml(desc)}</div>
+</div>
+
+${keys.length ? `
+  <div class="mp-meta" style="margin-top:10px;gap:8px;flex-wrap:wrap;">
+    ${keys.map(k => `<span class="mp-pill">${escapeHtml(k)}</span>`).join('')}
+  </div>
+` : ''}
+
+
+   <div class="mp-hint" style="margin-top:12px">
+   Elige un modelo en la lista para abrir su ficha.
+</div>
+
+  `;
+}
+
+    // =========================================================
+    // 4) Render ficha de modelo (sin procesos/mjps)
+    // =========================================================
+   function renderModelInfo(m){
+
+  // ✅ Si no hay modelo: pinta SIEMPRE el hero y resetea estados
+  if(!m || !m.id){
+
+    modelInfoEl.classList.remove('school-view');
+    modelInfoEl.style.removeProperty('--schoolColor');
+
+    // resetea glow suave
+    const rightPanel = document.querySelector('.panel.right');
+    if (rightPanel){
+      rightPanel.style.setProperty('--panelGlow', 'rgba(217,170,63,0.12)');
+    }
+
+    // oculta sticky header si existía
+    if (window.__SMH){
+      window.__SMH.setTitle('');
+      window.__SMH.setAuthor('');
+      window.__SMH.hide?.();
+    }
+    const smh = document.getElementById('stickyModelHeader');
+    if (smh) smh.classList.remove('is-on');
+
+    modelInfoEl.innerHTML = `
+      <div class="mp-hero">
+        <div class="mp-hero-eyebrow">Biblioteca viva</div>
+        <div class="mp-hero-title">Modelos psicoterapéuticos</div>
+        <div class="mp-hero-text">
+          Explora cómo distintas escuelas entienden el cambio, el sufrimiento y la intervención clínica.
+        </div>
+
+        <div class="mp-hero-steps">
+          <div class="mp-step"><span class="mp-step-dot"></span>1) Elige una escuela</div>
+          <div class="mp-step"><span class="mp-step-dot"></span>2) Haz clic en un modelo</div>
+          <div class="mp-step"><span class="mp-step-dot"></span>3) Lee influencias, procedimientos y micros</div>
+        </div>
+      </div>
+
+      <div class="mp-hint">Selecciona una escuela y luego un modelo para ver toda su información.</div>
+    `;
+    return;
+  }
+
+  // ---- a partir de aquí, ya hay modelo real ----
+  try{ console.log('OPEN MODEL', m.label, m.id); }catch(e){}
+  const col = groupColor.get(m.grupo) || '#ffffff';
+
+  modelInfoEl.classList.remove('school-view');
+  modelInfoEl.style.removeProperty('--schoolColor');
+
+  const rightPanel = document.querySelector('.panel.right');
+  if (rightPanel){
+    rightPanel.style.setProperty('--panelGlow', hexToRgba(col, 0.22));
+  }
+
+  const pills = [
+    m.year ? `<span class="mp-pill">${escapeHtml(m.year)}</span>` : '',
+    m.universidad ? `<span class="mp-pill">${escapeHtml(m.universidad)}</span>` : '',
+    (m.ciudad || m.pais) ? `<span class="mp-pill">${escapeHtml((m.ciudad ?? '') + (m.pais ? ' · ' + m.pais : ''))}</span>` : ''
+  ].filter(Boolean).join('');
+
+  // contadores
+const nInflu = Array.isArray(m.influencias) ? m.influencias.filter(Boolean).length : 0;
+const nRefs  = Array.isArray(m.refs) ? m.refs.filter(Boolean).length : 0;
+const nProc  = Array.isArray(m.procedimientos) ? m.procedimientos.filter(Boolean).length : 0;
+const nMicro = Array.isArray(m.micros) ? m.micros.filter(Boolean).length : 0;
+const nSeq   = Array.isArray(m.secuencias) ? m.secuencias.filter(Boolean).length : 0;
+const nIdeas = Array.isArray(m.ideasPrincipales) ? m.ideasPrincipales.filter(Boolean).length : 0;
+
+  // alianza/neimeyer
+  const nAli = (m.alianzaModelo && typeof m.alianzaModelo === 'object')
+    ? Object.entries(m.alianzaModelo).filter(([k,v]) => v && String(v).trim()).length
+    : 0;
+
+  const nNei = (m.neimeyer && typeof m.neimeyer === 'object')
+    ? Object.entries(m.neimeyer).filter(([k,v]) => v && String(v).trim()).length
+    : 0;
+  // ===== Autor con foto =====
+// ===== Autor con foto (versión con depuración para ver qué falla) =====
+// ===== Autor con foto (foto.json) =====
+const fullAutores = String(m.autores ?? '').trim();
+
+// Para la FOTO: usa el 1º autor (lo normal en índices)
+const autorFoto = (fullAutores.split(';')[0] || '').trim() || '—';
+const autorFotoKey = autorFoto.split(',')[0].trim(); // por si viene "Apellido, Nombre"
+
+// Para MOSTRAR: todos los autores
+const autoresDisplay = fullAutores
+  ? fullAutores.split(';').map(s => s.trim()).filter(Boolean).join(' · ')
+  : '—';
+
+let fotoUrl = null;
+
+const IDX = window.AUTHOR_PHOTO_INDEX || { authors:{}, models:{} };
+
+// Busca por autor (con la MISMA normalización que usas en el index)
+const authorKey = normAuthorKey(autorFotoKey);
+if (IDX.authors?.[authorKey]) {
+  fotoUrl = `${DATA_BASE}/Core/fotos/${IDX.authors[authorKey]}`;
+
+}
+
+// Fallback por modelo
+if (!fotoUrl) {
+  const modelKey = String(m.id ?? '').trim();
+  if (IDX.models?.[modelKey]) {
+   fotoUrl = `${DATA_BASE}/Core/fotos/${IDX.models[modelKey]}`;
+
+  }
+}
+
+const authorHTML =
+  '<div class="mp-author mp-author-wrap">' +
+
+    (fotoUrl
+      ? '<img class="mp-author-photo" src="' + fotoUrl + '" alt="' + escapeHtml(autoresDisplay) + '" loading="lazy" decoding="async">'
+      : '<div class="mp-author-photo" aria-hidden="true"></div>'
+    ) +
+    '<div class="mp-author-text">' +
+      '<div class="mp-author-name">' + escapeHtml(autoresDisplay) + '</div>' +
+      // 👇 Quitamos el año aquí para NO duplicarlo (ya está en pills)
+      '<div class="mp-author-meta"></div>' +
+    '</div>' +
+  '</div>';
+
+
+  modelInfoEl.innerHTML = `
+  <div class="mp-mapbg" aria-hidden="true">
+  <svg id="miniMapSvgBg"></svg>
+</div>
+
+    <span class="mp-tag" style="color:${col};border-color:${col}">
+      ${escapeHtml(m.grupo)}
+    </span>
+
+    <div class="mp-title">${escapeHtml(m.label)}</div>
+   ${authorHTML}
+
+
+    <div class="mp-meta">${pills || `<span class="mp-pill">—</span>`}</div>
+
+    <div class="mp-desc">${escapeHtml(m.descripcion ?? '—')}</div>
+
+    <div class="mp-acc">
+      ${acc('Influencias', nInflu, sectionListInner(m.influencias, {asList:false}), true)}
+      ${nIdeas ? acc('Ideas principales', nIdeas, sectionIdeasInner(m.ideasPrincipales), false) : ''}
+
+${nNei ? acc('Niveles', nNei, sectionNeimeyerInner(m.neimeyer), false) : ''}
+
+     ${nProc ? acc('Procedimientos', nProc, sectionProceduresInner(m.procedimientos), false) : ''}
+
+     ${nSeq ? acc('Secuencias', nSeq, sectionSequencesInner(m.secuencias), false) : ''}
+
+     ${nMicro ? acc('Microintervenciones', nMicro, sectionProceduresInner(m.micros), false) : ''}
+
+${nRefs ? acc('Referencias', nRefs, sectionListInner(m.refs, {asList:true}), false) : ''}
+
+
+      ${nAli ? acc('Alianza terapéutica', nAli, sectionAliInner(m.alianzaModelo), false) : ''}
+
+      
+    </div>
+  `;
+      // ✅ Variables globales para todo el panel derecho (sticky incluido)
+document.documentElement.style.setProperty('--schoolColor', col);
+document.documentElement.style.setProperty('--panelGlow', hexToRgba(col, 0.16));
+if (window.__SMH){
+  window.__SMH.setTitle(m.label);
+  window.__SMH.setAuthor(m.autores || '');
+  window.__SMH.rescan();
+}
+
+
+      // === Mini map de fondo (misma estética Mapamundi) ===
+try{
+const bgSvg = document.getElementById('miniMapSvgBg');
+requestAnimationFrame(() => miniRender(bgSvg, m));
+
+}catch(e){
+  console.warn('miniRender bg failed', e);
+}
+
+}
+
+function acc(title, count, bodyHtml, open=false){
+  return `
+    <details ${open ? 'open' : ''}>
+      <summary>
+        <span>${escapeHtml(title)}</span>
+        <span class="sumRight">
+          <span class="sumCount">${count}</span>
+          <span class="chev">▾</span>
+        </span>
+      </summary>
+      <div class="body">${bodyHtml}</div>
+    </details>
+  `;
+}
+
+function sectionListInner(arr, opts={}){
+  const a = Array.isArray(arr) ? arr.filter(Boolean) : [];
+  const asList = !!opts.asList;
+
+  if(!a.length) return `<div>—</div>`;
+
+  if(asList){
+    return `<ul class="mp-list">${a.map(x => `<li>${escapeHtml(x)}</li>`).join('')}</ul>`;
+  }
+  return `<div>${a.map(x => escapeHtml(x)).join(', ')}</div>`;
+}
+
+function sectionProceduresInner(arr){
+  const a = Array.isArray(arr) ? arr : [];
+
+  // ✅ filtra entradas realmente útiles (evita huecos)
+  const clean = a
+    .filter(Boolean)
+    .filter(p => {
+      const hasName = (p.nombre && String(p.nombre).trim().length);
+      const hasText = (p.texto && String(p.texto).trim().length);
+      const hasCode = (p.codigo && String(p.codigo).trim().length);
+      return hasName || hasText || hasCode;
+    });
+
+  if(!clean.length) return `<div>—</div>`;
+
+  return `
+    <div class="mp-sub">
+      ${clean.map(p => {
+        const title = escapeHtml(p.nombre && String(p.nombre).trim() ? p.nombre : 'Sin título');
+        const code  = (p.codigo && String(p.codigo).trim())
+          ? `<span class="mp-code">${escapeHtml(p.codigo)}</span>` : '';
+        const bodyText = (p.texto && String(p.texto).trim()) ? p.texto : '—';
+
+      const dataCodeAttr = (p.codigo && String(p.codigo).trim())
+  ? ` data-code="${escapeHtml(p.codigo)}"`
+  : '';
+
+return `
+  <details${dataCodeAttr}>
+
+            <summary>
+              <span class="subLeft">
+                <span class="subTitle">${title}</span>
+              </span>
+              <span class="subRight">
+                ${code}
+                <span class="chev">▾</span>
+              </span>
+            </summary>
+            <div class="subBody">${escapeHtml(bodyText)}</div>
+          </details>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+function sectionSequencesInner(arr){
+  const a = Array.isArray(arr) ? arr : [];
+  const clean = a.filter(Boolean).filter(s => {
+    const hasName = (s.nombre && String(s.nombre).trim().length);
+    const hasDesc = (s.descripcion && String(s.descripcion).trim().length);
+    const hasSteps = Array.isArray(s.pasos) && s.pasos.length;
+    return hasName || hasDesc || hasSteps;
+  });
+
+  if (!clean.length) return `<div>—</div>`;
+
+  // Visual: cajas + flecha (sin SVG, pero queda claro y estable)
+  return `
+    <div class="mp-seqs">
+      ${clean.map(seq => {
+        const title = escapeHtml(seq.nombre && String(seq.nombre).trim() ? seq.nombre : 'Sin título');
+        const desc  = escapeHtml(seq.descripcion && String(seq.descripcion).trim() ? seq.descripcion : '—');
+
+        const steps = Array.isArray(seq.pasos) ? seq.pasos : [];
+        const stepsSorted = steps.slice().sort((x,y) => (x?.orden ?? 0) - (y?.orden ?? 0));
+
+        const stepsHtml = stepsSorted.map((st, i) => {
+          const ord = (st && st.orden != null) ? st.orden : (i+1);
+          const accTxt = escapeHtml(st?.accion ? String(st.accion) : '—');
+          const procs = Array.isArray(st?.procesos) ? st.procesos : [];
+          const procsTxt = procs.length ? procs.map(p => `<span class="mp-chip">${escapeHtml(p)}</span>`).join('') : `<span class="mp-chip mp-chip-empty">—</span>`;
+
+const expTxt = escapeHtml(st?.explicacion ? String(st.explicacion) : '');
+
+return `
+  <div class="mp-flowItem" style="${String(seq.tipo||'') === 'protocolo_ciclico' ? `--ang:${(360 / Math.max(stepsSorted.length,1) * i).toFixed(4)}deg;` : ''}">
+
+    <div class="mp-flowDot">${ord}</div>
+
+    <details class="mp-flowBox mp-step" ${expTxt ? '' : 'data-noexp="1"'}>
+      <summary class="mp-stepSum">
+        <div class="mp-flowAction">${accTxt}</div>
+        <div class="mp-stepChev">▾</div>
+      </summary>
+
+      ${expTxt ? `<div class="mp-stepBody">${expTxt}</div>` : ``}
+    </details>
+  </div>
+`;
+
+
+        }).join('');
+
+        return `
+          <details class="mp-seq">
+            <summary>
+              <span class="subLeft"><span class="subTitle">${title}</span></span>
+              <span class="subRight"><span class="chev">▾</span></span>
+            </summary>
+            <div class="subBody">
+              <div class="mp-seqDesc">${desc}</div>
+<div class="mp-flow ${String(seq.tipo||'') === 'protocolo_ciclico' ? 'mp-flow-loop' : ''}">
+  ${stepsHtml || '—'}
+</div>
+
+
+            </div>
+          </details>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+
+function sectionAliInner(obj){
+  if(!obj || typeof obj !== 'object') return `<div>—</div>`;
+  const entries = Object.entries(obj).filter(([k,v]) => v && String(v).trim());
+  if(!entries.length) return `<div>—</div>`;
+
+  const nice = (k) => k
+    .replace(/^ALI_/, '')
+    .replace(/([A-Z])/g, ' $1')
+    .replace(/_/g,' ')
+    .trim();
+
+  return entries.map(([k,v]) => `
+    <div style="margin:10px 0 0 0">
+      <div style="font-weight:900; color:#fff; font-size:12px">${escapeHtml(nice(k))}</div>
+      <div style="margin-top:6px; white-space:pre-wrap;">${escapeHtml(v)}</div>
+    </div>
+  `).join('');
+}
+
+function sectionNeimeyerInner(obj){
+  if(!obj || typeof obj !== 'object') return `<div>—</div>`;
+
+  const keys = ['epistemologico','teoriaFormal','teoriaClinica'];
+  const labels = {
+    epistemologico: 'Epistemológico',
+    teoriaFormal: 'Teoría formal',
+    teoriaClinica: 'Teoría clínica'
+  };
+
+  const blocks = keys
+    .map(k => [k, obj[k]])
+    .filter(([k,v]) => v && String(v).trim());
+
+  if(!blocks.length) return `<div>—</div>`;
+
+  return blocks.map(([k,v]) => `
+    <div style="margin:10px 0 0 0">
+      <div style="font-weight:900; color:#fff; font-size:12px">${escapeHtml(labels[k] ?? k)}</div>
+      <div style="margin-top:6px; white-space:pre-wrap;">${escapeHtml(v)}</div>
+    </div>
+  `).join('');
+}
+
+    function sectionList(title, arr, opts={}){
+      const a = Array.isArray(arr) ? arr.filter(Boolean) : [];
+      const asList = !!opts.asList;
+
+      return `
+        <div class="mp-section">
+          <h4>${escapeHtml(title)}</h4>
+          ${
+            a.length
+              ? (asList
+                  ? `<ul class="mp-list">${a.map(x => `<li>${escapeHtml(x)}</li>`).join('')}</ul>`
+                  : `<div>${a.map(x => escapeHtml(x)).join(', ')}</div>`)
+              : `<div>—</div>`
+          }
+        </div>
+      `;
+    }
+function sectionIdeasInner(ideas){
+  const list = Array.isArray(ideas) ? ideas.filter(Boolean) : [];
+  if(!list.length) return `<div class="mp-empty">—</div>`;
+
+  return `
+    <div class="mp-ideas">
+      ${list.map((it, idx) => {
+        // Admite ideas como string o como objeto
+        if (typeof it === 'string'){
+          const t = `Idea ${idx+1}`;
+          const b = it.trim();
+          return `
+            <details class="mp-idea">
+              <summary class="mp-idea-title">${escapeHtml(t)}</summary>
+              <div class="mp-idea-body">${escapeHtml(b || '—')}</div>
+            </details>
+          `;
+        }
+
+        const titleRaw = String(it?.titulo ?? it?.title ?? `Idea ${idx+1}`).trim();
+        const bodyRaw  = String(
+          it?.desarrollo ??
+          it?.texto ??
+          it?.body ??
+          it?.descripcion ??
+          ''
+        ).trim();
+
+        return `
+          <details class="mp-idea">
+            <summary class="mp-idea-title">${escapeHtml(titleRaw || `Idea ${idx+1}`)}</summary>
+            <div class="mp-idea-body">${escapeHtml(bodyRaw || '—')}</div>
+          </details>
+        `;
+      }).join('')}
+    </div>
+  `;
+}
+
+
+
+    function sectionProcedures(title, arr){
+      const a = Array.isArray(arr) ? arr.filter(Boolean) : [];
+      if(!a.length){
+        return `
+          <div class="mp-section">
+            <h4>${escapeHtml(title)}</h4>
+            <div>—</div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="mp-section">
+          <h4>${escapeHtml(title)}</h4>
+          <ul class="mp-list">
+            ${a.map(p => `
+              <li>
+                <b>${escapeHtml(p.nombre ?? '—')}</b>
+                ${p.codigo ? `<span class="mp-code">${escapeHtml(p.codigo)}</span>` : ''}
+                ${p.texto ? `<div style="margin-top:6px; color:#e3ebf6; white-space:pre-wrap;">${escapeHtml(p.texto)}</div>` : ''}
+              </li>
+            `).join('')}
+          </ul>
+        </div>
+      `;
+    }
+
+    function sectionAli(title, obj){
+      if(!obj || typeof obj !== 'object'){
+        return `
+          <div class="mp-section">
+            <h4>${escapeHtml(title)}</h4>
+            <div>—</div>
+          </div>
+        `;
+      }
+      const entries = Object.entries(obj).filter(([k,v]) => v && String(v).trim());
+      if(!entries.length){
+        return `
+          <div class="mp-section">
+            <h4>${escapeHtml(title)}</h4>
+            <div>—</div>
+          </div>
+        `;
+      }
+
+      const nice = (k) => k
+        .replace(/^ALI_/, '')
+        .replace(/([A-Z])/g, ' $1')
+        .replace(/_/g,' ')
+        .trim();
+
+      return `
+        <div class="mp-section">
+          <h4>${escapeHtml(title)}</h4>
+          ${entries.map(([k,v]) => `
+            <div style="margin:10px 0 0 0">
+              <div style="font-weight:900; color:#fff; font-size:12px">${escapeHtml(nice(k))}</div>
+              <div style="margin-top:6px; white-space:pre-wrap; color:#e3ebf6">${escapeHtml(v)}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    function sectionNeimeyer(title, obj){
+      if(!obj || typeof obj !== 'object'){
+        return `
+          <div class="mp-section">
+            <h4>${escapeHtml(title)}</h4>
+            <div>—</div>
+          </div>
+        `;
+      }
+      const keys = ['epistemologico','teoriaFormal','teoriaClinica'];
+      const labels = {
+        epistemologico: 'Epistemológico',
+        teoriaFormal: 'Teoría formal',
+        teoriaClinica: 'Teoría clínica'
+      };
+      const blocks = keys
+        .map(k => [k, obj[k]])
+        .filter(([k,v]) => v && String(v).trim());
+
+      if(!blocks.length){
+        return `
+          <div class="mp-section">
+            <h4>${escapeHtml(title)}</h4>
+            <div>—</div>
+          </div>
+        `;
+      }
+
+      return `
+        <div class="mp-section">
+          <h4>${escapeHtml(title)}</h4>
+          ${blocks.map(([k,v]) => `
+            <div style="margin:10px 0 0 0">
+              <div style="font-weight:900; color:#fff; font-size:12px">${escapeHtml(labels[k] ?? k)}</div>
+              <div style="margin-top:6px; white-space:pre-wrap; color:#e3ebf6">${escapeHtml(v)}</div>
+            </div>
+          `).join('')}
+        </div>
+      `;
+    }
+
+    // =========================================================
+    // 5) Interacción
+    // =========================================================
+function getAllModelsPool(){
+  return (window.MODELS_ALL && Array.isArray(window.MODELS_ALL) && window.MODELS_ALL.length)
+    ? window.MODELS_ALL
+    : (Array.isArray(MODELS) ? MODELS : []);
+}
+
+
+async function openModel(id){
+  const target = String(id ?? '').trim();
+  if(!target) return;
+
+  // helper: busca el modelo en los pools actuales
+  const findInPools = () => {
+    const pool = getAllModelsPool();
+    return pool.find(x => String(x?.id ?? '').trim() === target) || null;
+  };
+
+  // 1) intenta con lo ya cargado
+  let m = findInPools();
+
+  // 2) si no aparece, intenta cargar escuelas desde GH (una a una) y re-buscar
+  if(!m){
+    // A) primero intenta con la escuela actualmente seleccionada
+    if (currentSchool && currentSchool !== 'todas'){
+      try{
+        await ensureSchoolFromGitHub(currentSchool);
+        m = findInPools();
+      }catch(e){}
+    }
+
+    // B) si aún no aparece, recorre el índice GH_SCHOOLS
+    if(!m){
+      const ghList = Array.isArray(window.GH_SCHOOLS) ? window.GH_SCHOOLS : (Array.isArray(GH_SCHOOLS) ? GH_SCHOOLS : []);
+
+      for (const s of ghList){
+        const label = s?.label || s?.id;
+        if(!label) continue;
+
+        try{
+          await ensureSchoolFromGitHub(label);
+        }catch(e){}
+
+        m = findInPools();
+        if(m) break;
+      }
     }
   }
-});
 
-// botón siguiente normal (desktop)
-$("#btnNext").addEventListener("click", ()=>{
-  if(fsOverlay.classList.contains("is-on")) return;
-  buildQuestion();
+  // 3) si sigue sin aparecer, no rompas UI
+  if(!m){
+    console.warn('⚠️ openModel: no encontrado', target);
+    return;
+  }
 
-  /* ✅ SIEMPRE ARRIBA */
-  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-});
+  // 4) ya tenemos algo: marca currentModelId y activa item en lista
+  currentModelId = String(m.id ?? '').trim();
 
+  // 5) expande a “full” si venía como resumen GH
+  m = await ensureModelFull(m);
 
-$("#btnReset").addEventListener("click", ()=> resetGame());
+  // 6) render
+  renderModelInfo(m);
 
-// botón siguiente del fullscreen (móvil)
-btnNextFs.addEventListener("click", ()=>{
-  closeFsPanel();
-  buildQuestion();
+  // 7) repinta lista con active (si estamos en modo normal)
+  try{ renderModelsList(); }catch(e){}
 
-  /* ✅ SIEMPRE ARRIBA (pantalla principal) */
-  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
-});
+  // 8) scroll arriba del panel derecho para que se vea el inicio
+  const rp = document.querySelector('.panel.right');
+  if (rp) rp.scrollTop = 0;
+}
+function resetRightPanelToTop(){
 
+  // panel derecho
+  const rp = document.querySelector('.panel.right');
+  if (rp){
+    rp.scrollTop = 0;
+    requestAnimationFrame(() => { rp.scrollTop = 0; });
+  }
 
-// cerrar overlay
-btnCloseFs.addEventListener("click", ()=> closeFsPanel());
+  // documento completo (embed / iframe fix)
+  document.documentElement.scrollTop = 0;
+  document.body.scrollTop = 0;
 
-fsOverlay.addEventListener("click", (e)=>{
-  if(e.target === fsOverlay) closeFsPanel();
-});
-
-// ✅ cambio de escuela
-if(elSchoolFilter){
-  elSchoolFilter.addEventListener("change", ()=>{
-    CURRENT_SCHOOL = elSchoolFilter.value || "todas";
-    applySchoolFilter();
-    window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  requestAnimationFrame(() => {
+    document.documentElement.scrollTop = 0;
+    document.body.scrollTop = 0;
   });
 }
 
-init().finally(()=>{
-  // micro-ritual de entrada (pro)
-  requestAnimationFrame(()=> document.body.classList.add("loaded"));
+function scrollLeftPanelToStickyPoint(){
+  const panel = document.querySelector('.panel.left');
+  const title = panel?.querySelector('.title');
+  if (!panel) return;
+
+  let offset = 0;
+
+  if (title){
+    const r = title.getBoundingClientRect();
+    offset = r.height;
+
+    const st = getComputedStyle(title);
+    offset += parseFloat(st.marginBottom) || 0;
+  }
+
+  const FUDGE = -10; // ✅ micro-ajuste para que el sticky ya esté “clavado”
+  panel.scrollTop = Math.max(0, offset - FUDGE);
+}
+
+
+
+
+schoolSelect.addEventListener('change', async () => {
+  try{
+    currentSchool = schoolSelect.value;
+    currentModelId = null;
+
+    // 👇 si es escuela nueva (sin modelos locales), la trae de GitHub
+    await ensureSchoolFromGitHub(currentSchool);
+
+    renderModelsList();
+
+    // ✅ mantiene el selector arriba fijo y la primera tarjeta justo debajo (sin baile)
+    requestAnimationFrame(() => {
+      scrollLeftPanelToStickyPoint();
+    });
+
+ renderSchoolInfo(currentSchool);
+resetRightPanelToTop();
+
+  }catch(err){
+    console.error(err);
+  }
 });
 
 
 
+
+    // =========================================================
+    // 6) Helpers
+    // =========================================================
+    function escapeHtml(s){
+      return String(s ?? '')
+        .replaceAll('&','&amp;')
+        .replaceAll('<','&lt;')
+        .replaceAll('>','&gt;')
+        .replaceAll('"','&quot;')
+        .replaceAll("'","&#039;");
+    }
+// (eliminada: ya existe hexToRgba arriba; evita duplicados)
+
+// =========================
+// URL PARAMS (embed)
+// =========================
+window.__QS = window.__QS || new URLSearchParams(location.search);
+window.__EMBED  = ["1","true","yes"].includes((window.__QS.get("embed") || "").toLowerCase());
+window.__OPENID = (window.__QS.get("open") || "").trim();
+
+// init (local + GitHub)
+// init (local + GitHub)
+(async function init(){
+  try{
+    // 1) índice de escuelas GH
+    await loadGhSchoolsIndex();
+
+    // 2) selector
+    buildSchoolOptions();
+
+    // 3) precarga escuela inicial (si procede) + pinta
+    if (currentSchool){
+      await ensureSchoolFromGitHub(currentSchool);
+      renderModelsList();
+      renderSchoolInfo(currentSchool);
+      resetRightPanelToTop();
+    }else{
+      renderModelsList();
+      renderModelInfo(null);
+    }
+
+// 4) landing solo si NO embed y no viene open directo
+if(!window.__EMBED && !window.__OPENID){
+  buildLandingSchools();
+  showLanding();
+}else{
+  try{ hideLanding(); }catch(e){}
+}
+
+    // 5) open directo: abrir modelo
+if (window.__OPENID){
+
+  // Nota: si currentSchool es null, este ensure fallará y no pasa nada (lo atrapamos)
+  try{
+    if(currentSchool) await ensureSchoolFromGitHub(currentSchool);
+  }catch(e){}
+
+await openModel(window.__OPENID);
+
+  // En embed, forzar scroll arriba tras pintar
+  if(window.__EMBED){
+    setTimeout(() => {
+      resetRightPanelToTop();
+    }, 60);
+  }
+}
+if(window.__EMBED){
+  document.body.classList.add("embedMode", "is-embed");
+}
+
+    // 6) micro-ritual “loaded”
+    requestAnimationFrame(()=> document.body.classList.add('loaded'));
+
+  }catch(e){
+    console.error('❌ init falló', e);
+    document.body.classList.add('loaded');
+  }
+})();
+
+
+
+});
+
+  
   </script>
+  
+
+<!-- ================== LANDING (pantalla inicio) ================== -->
+<div id="landingOverlay" class="landingOverlay" aria-hidden="true">
+
+  <div class="landingBlobs" aria-hidden="true"></div>
+
+  <div class="landingShell">
+
+    <div class="landingHero">
+      <div class="landingKicker">Biblioteca · Tu Mentor</div>
+      <h1 class="landingH1">Modelos Psicoterapéuticos</h1>
+      <p class="landingLead">Explora enfoques clínicos organizados por escuelas, con rigor y claridad.</p>
+    </div>
+
+    <div id="landingGrid" class="landingGrid"></div>
+
+    <div class="landingFooter"></div>
+  </div>
+</div>
+<!-- ================== /LANDING ================== -->
+
+
+<div class="nav-speed" aria-label="Navegación entre apps">
+  <div class="nav-menu" role="menu" aria-label="Abrir otras apps">
+
+    <a class="nav-fab" role="menuitem"
+       href="https://www.tumentorpsicologia.com/p/procesosnou"
+       title="Procesos psicoterapéuticos"
+       aria-label="Procesos">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <path d="M7 4V20M7 4H13.2C16.8 4 17.8 6.2 17.8 8C17.8 9.8 16.8 12 13.2 12H7"
+          stroke="currentColor" stroke-width="2.4"
+          stroke-linecap="round" stroke-linejoin="round"/>
+      </svg>
+    </a>
+
+    <a class="nav-fab" role="menuitem"
+       href="https://www.tumentorpsicologia.com/p/diagramatemporal"
+       title="Diagrama temporal"
+       aria-label="Temporal">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="5" r="2.2" stroke="currentColor" stroke-width="1.8"/>
+        <circle cx="8" cy="12" r="2.2" stroke="currentColor" stroke-width="1.8"/>
+        <circle cx="16" cy="12" r="2.2" stroke="currentColor" stroke-width="1.8"/>
+        <circle cx="12" cy="19" r="2.2" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M12 7.4V9.2" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M12 9.2C10.5 9.9 9.2 10.9 8 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M12 9.2C13.5 9.9 14.8 10.9 16 12" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M8 14.3C9.1 15.7 10.4 16.9 12 17.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M16 14.3C14.9 15.7 13.6 16.9 12 17.6" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+      </svg>
+    </a>
+
+    <a class="nav-fab" role="menuitem"
+       href="https://www.tumentorpsicologia.com/p/untitled-17"
+       title="Mapamundi"
+       aria-label="Mapamundi">
+      <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+        <circle cx="12" cy="12" r="9" stroke="currentColor" stroke-width="1.8"/>
+        <path d="M3.5 12h17" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+        <path d="M12 3c2.8 2.6 4.5 5.9 4.5 9s-1.7 6.4-4.5 9c-2.8-2.6-4.5-5.9-4.5-9S9.2 5.6 12 3z"
+          stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/>
+      </svg>
+    </a>
+
+  </div>
+
+  <button class="nav-fab nav-fab-main" type="button"
+          aria-label="Abrir navegación" aria-expanded="false">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 5v14M5 12h14"
+        stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>
+    </svg>
+  </button>
+</div>
+
+<script>
+(function setupSpeedDialNav(){
+  const nav = document.querySelector('.nav-speed');
+  if (!nav) return;
+
+  const btn  = nav.querySelector('.nav-fab-main');
+  const menu = nav.querySelector('.nav-menu');
+  if (!btn || !menu) return;
+
+  const setOpen = (on) => {
+    nav.classList.toggle('open', on);
+    btn.setAttribute('aria-expanded', on ? 'true' : 'false');
+  };
+
+  btn.addEventListener('click', (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setOpen(!nav.classList.contains('open'));
+  });
+
+  document.addEventListener('click', (e) => {
+    if (!nav.classList.contains('open')) return;
+    if (nav.contains(e.target)) return;
+    setOpen(false);
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') setOpen(false);
+  });
+
+  menu.addEventListener('click', () => setOpen(false));
+
+  setOpen(false);
+})();
+</script>
+
 </body>
 </html>

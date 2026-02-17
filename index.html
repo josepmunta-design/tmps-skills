@@ -541,12 +541,20 @@ select.select{
   color-scheme: dark;
 }
 
-    .grid{
-      display:grid;
-      grid-template-columns: 1.1fr .9fr;
-      gap: 12px;
-      align-items: stretch;
-    }
+.grid{
+  display:grid;
+  grid-template-columns: 1fr 1.25fr; /* ✅ derecha más ancha */
+  gap: 12px;
+  align-items: stretch;
+}
+
+/* ✅ solo en pantallas grandes, aún más lectura */
+@media (min-width: 1200px){
+  .grid{
+    grid-template-columns: 1fr 2.45fr;
+  }
+}
+
  @media (max-width: 900px){
   .grid{ grid-template-columns: 1fr; }
 
@@ -1089,7 +1097,7 @@ select.select{
 }
 
 .fsTop{
-  padding: 12px 12px;
+  padding: 10px 12px;
   display:flex;
   align-items:center;
   justify-content: space-between;
@@ -1097,6 +1105,15 @@ select.select{
   border-bottom: 1px solid rgba(255,255,255,0.08);
   background: rgba(255,255,255,0.04);
 }
+
+/* ✅ el resultado ahora vive en la barra superior */
+#fsResult{
+  flex: 1 1 auto;
+  margin: 0 !important;
+  padding: 10px 10px;
+  border-radius: 14px;
+}
+
 .fsTitle{
   font-weight: 900;
   font-size: 13px;
@@ -1157,9 +1174,10 @@ select.select{
 }
 /* Resultado (fullscreen) */
 .fsResult{
-  margin: 12px 12px 0 12px;
-  padding: 12px 12px;
-  border-radius: 16px;
+  margin: 0;
+padding: 10px 10px;
+border-radius: 14px;
+
   border: 1px solid rgba(255,255,255,0.10);
   background:
     radial-gradient(600px 120px at 20% 0%, rgba(255,255,255,0.08), transparent 60%),
@@ -1457,13 +1475,11 @@ body.loaded .panel{
 <!-- FULLSCREEN (móvil) -->
 <div class="fsOverlay" id="fsOverlay" aria-hidden="true">
   <div class="fsSheet" role="dialog" aria-modal="true" aria-label="Detalle del modelo">
-    <div class="fsTop">
-      <div class="fsTitle">Detalle del modelo</div>
-      <button class="btn fsClose" id="btnCloseFs">Cerrar</button>
-    </div>
+<div class="fsTop">
+  <div class="fsResult" id="fsResult"></div>
+  <button class="btn fsClose" id="btnCloseFs">Cerrar</button>
+</div>
 
-    <!-- aquí clonamos el contenido del panel derecho -->
-   <div class="fsResult" id="fsResult"></div>
 
 <!-- aquí clonamos el contenido del panel derecho -->
 <div class="fsBody" id="fsBody"></div>

@@ -593,12 +593,14 @@ select.select{
 
 /* Iframe dentro del fullscreen */
 .fsBody{
-  padding: 0 !important; /* para que el iframe encaje perfecto */
+  flex: 1 1 auto;     /* ✅ ocupa TODO el alto disponible */
+  padding: 0 !important;
+  overflow: hidden;   /* ✅ el scroll que lo haga el iframe */
+  min-height: 0;
 }
 .fsIframe{
   width: 100%;
   height: 100%;
-  min-height: 65vh;
   border: 0;
   display: block;
   background: transparent;
@@ -1040,25 +1042,36 @@ select.select{
 .fsOverlay{
   position: fixed;
   inset: 0;
-  z-index: 9999;
+  z-index: 2147483647;
+
   display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 14px;
+  align-items: stretch;
+  justify-content: stretch;
+
+  padding: 0;
+  margin: 0;
+
   background: rgba(0,0,0,0.55);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
-}
-.fsOverlay.is-on{ display:flex; }
 
+  overscroll-behavior: contain;
+}
+.fsOverlay.is-on{ display:flex !important; }
 .fsSheet{
-  width: min(980px, 100%);
-  height: min(92vh, 92dvh);
-  border-radius: 20px;
+  width: 100%;
+  height: 100dvh;      /* ✅ iOS moderno */
+  min-height: 100vh;   /* ✅ fallback */
+  max-width: none;
+  max-height: none;
+
+  border-radius: 0;
   overflow: hidden;
-  border: 1px solid rgba(255,255,255,0.12);
+  border: 0;
+
   background: linear-gradient(180deg, var(--panelA), var(--panelB));
-  box-shadow: 0 30px 90px rgba(0,0,0,0.65), inset 0 1px 0 rgba(255,255,255,0.06);
+  box-shadow: none;
+
   display:flex;
   flex-direction: column;
 }
@@ -1125,7 +1138,7 @@ select.select{
 
 /* Solo tiene sentido en móvil */
 @media (min-width: 901px){
-  .fsOverlay{ display:none !important; }
+  .fsOverlay{ display:none; }
 }
 /* Resultado (fullscreen) */
 .fsResult{

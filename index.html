@@ -570,6 +570,11 @@ select.select{
   overflow: hidden;
   box-shadow: 0 18px 60px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,0.06);
 }
+/* ✅ RightCard: fondo casi igual al borde para que el “marco” no cante */
+.card.rightCard{
+    padding: 10px !important;                 /* crea marco */
+  background: rgba(255,255,255,0.10) !important; /* mismo alpha que el borde */
+}
 
 /* =========================
    REVEAL CARD (modelo-style)
@@ -587,6 +592,7 @@ select.select{
   height: 70vh;     /* altura explícita */
   min-height: 520px;
   border: 0;
+    border-radius: 14px; 
   display: block;
   background: transparent;
 }

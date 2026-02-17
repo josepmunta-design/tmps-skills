@@ -1160,6 +1160,7 @@ select.select{
   mix-blend-mode: screen;
 }
 
+/* Barra inferior (solo móvil): fuera */
 .fsBottom{
   padding: 12px 12px;
   border-top: 1px solid rgba(255,255,255,0.08);
@@ -1167,6 +1168,11 @@ select.select{
   display:flex;
   justify-content:flex-end;
 }
+
+@media (max-width: 900px){
+  .fsBottom{ display:none !important; }
+}
+
 
 /* Solo tiene sentido en móvil */
 @media (min-width: 901px){
@@ -2308,8 +2314,14 @@ btnNextFs.addEventListener("click", ()=>{
 });
 
 
-// cerrar overlay
-btnCloseFs.addEventListener("click", ()=> closeFsPanel());
+// cerrar overlay (móvil): mismo comportamiento que "Siguiente"
+btnCloseFs.addEventListener("click", ()=>{
+  closeFsPanel();
+  buildQuestion();
+
+  /* ✅ SIEMPRE ARRIBA (pantalla principal) */
+  window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+});
 
 fsOverlay.addEventListener("click", (e)=>{
   if(e.target === fsOverlay) closeFsPanel();

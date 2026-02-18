@@ -2061,7 +2061,9 @@ function setRevealedPanel(model, revealOn){
   }
 
   if(isMobile()) return; // en móvil no usamos el iframe lateral
+fadeInIframe(elFrame, elFrame.closest(".card.rightCard") || elFrame.parentElement);
 elFrame.src = modelosEmbedUrl(model.id);
+
 
 }
 
@@ -2160,11 +2162,16 @@ fsBody.innerHTML = `
 `;
 
 const fsIfr = fsBody.querySelector("iframe.fsIframe");
+
 if(fsIfr){
+  // ✅ fade-in controlado (móvil)
+  fadeInIframe(fsIfr, fsBody);
+
   // foco al abrir y al tocar (para que la rueda/trackpad y scroll móvil vayan finos)
   setTimeout(()=>{ try{ fsIfr.focus(); }catch(e){} }, 0);
   fsIfr.addEventListener("pointerdown", ()=>{ try{ fsIfr.focus(); }catch(e){} });
 }
+
 
 
 

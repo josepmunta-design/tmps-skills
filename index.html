@@ -117,20 +117,19 @@
   }
 }
 
-.panel{
-  position: relative;
-  overflow: visible;
-  width: 100%;
-
-  border-radius: 0;
-  background: transparent;
-  border: none;
-  box-shadow: none;
-
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
+    .panel{
+      position: relative;
+      overflow: hidden;
+      width: min(var(--cardW), 100%);
+      border-radius: 18px;
+      background: linear-gradient(180deg, var(--panelA), var(--panelB));
+      border:1px solid rgba(255,255,255,0.10);
+      box-shadow:
+        0 18px 50px rgba(0,0,0,0.45),
+        inset 0 1px 0 rgba(255,255,255,0.06);
+     backdrop-filter: blur(14px) saturate(125%);
+  -webkit-backdrop-filter: blur(14px) saturate(125%);
+    }
     /* =========================
    SCROLLBAR GLASS (premium)
    ========================= */
@@ -168,10 +167,23 @@
   background: linear-gradient(180deg, rgba(231,237,245,0.36), rgba(231,237,245,0.18));
 }
 
-.panel::before{
-  display: none !important;
-}
-
+    .panel::before{
+      content:"";
+      position:absolute;
+      inset:0;
+      border-radius:inherit;
+      pointer-events:none;
+      background:
+        radial-gradient(520px 320px at 88% 12%, var(--panelGlow), transparent 62%),
+        radial-gradient(700px 420px at 18% 85%, rgba(255,255,255,0.05), transparent 65%);
+      opacity:.95;
+      mix-blend-mode: screen;
+      animation: panelBreath 5s ease-in-out infinite;
+    }
+    @keyframes panelBreath{
+      0%,100%{ background-position: 0% 0%; opacity:.85; }
+      50%{ background-position: 100% 100%; opacity:1; }
+    }
 
     .wrap{ position: relative; z-index: 1; padding: 18px 18px 16px; }
 
@@ -638,22 +650,9 @@ select.select{
 }
 
 
+/* ❌ Desactivar glow por escuela en panel derecho */
 .card.rightCard::after{
-  content:"";
-  position:absolute;
-  top:-48px;
-  right:-48px;
-  width: 180px;
-  height: 180px;
-  border-radius: 999px;
-  pointer-events:none;
-
-
-  );
-
-  filter: blur(1px);
-  opacity: .95;
-  mix-blend-mode: screen;
+  display: none !important;
 }
 
 /* Badge de escuela (como en Modelos) */
@@ -855,6 +854,27 @@ text-shadow: 0 0 12px rgba(0,0,0,0.35);
       display:none;
     }
     .status.is-on{ display:block; }
+    /* ===== Status arriba (solo desktop) ===== */
+#topStatus{
+  margin: 0 0 10px 0;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.10);
+  background: linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.03));
+  color: rgba(231,237,245,.90);
+  font-weight: 800;
+  line-height: 1.35;
+  display: none;              /* por defecto oculto */
+}
+
+/* en desktop, cuando esté "is-on" se verá */
+#topStatus.is-on{ display:block; }
+
+/* en móvil: NO queremos status arriba */
+@media (max-width: 900px){
+  #topStatus{ display:none !important; }
+}
+
     .status .small{ display:block; margin-top: 4px; font-weight:700; opacity:.75; }
     
     /* =========================
@@ -1017,10 +1037,11 @@ text-shadow: 0 0 12px rgba(0,0,0,0.35);
   width: 320px;
   height: 320px;
   border-radius: 999px;
-  background: radial-gradient(circle at 35% 35%,
-    color-mix(in srgb, var(--schoolColor) 55%, transparent),
-    transparent 68%
-  );
+background: radial-gradient(circle at 35% 35%,
+  rgba(255,255,255,0.35),
+  transparent 68%
+);
+
   opacity: .55;
   pointer-events:none;
   mix-blend-mode: screen;
@@ -1618,6 +1639,77 @@ body.loaded .panel{
   opacity: 0;
   transform: translateY(6px);
 }
+/* =========================================
+   BLOBS “idle” en panel derecho (SOLO PC)
+   antes de seleccionar opción (iframe vacío)
+   ========================================= */
+@media (min-width: 901px){
+
+  /* asegúrate de que el card puede contener pseudo-elementos */
+  .card.rightCard{
+    position: relative;
+    overflow: hidden;
+  }
+
+  .card.rightCard.isEmpty::before,
+  .card.rightCard.isEmpty::after{
+    content:"";
+    position:absolute;
+    inset:-22%;
+    pointer-events:none;
+    z-index:0; /* por debajo del iframe */
+    filter: blur(60px);
+    opacity:.55;
+    transform: translate3d(0,0,0);
+  }
+
+  /* blob A */
+  .card.rightCard.isEmpty::before{
+    background:
+      radial-gradient(circle at 30% 35%,
+        rgba(255,255,255,0.18) 0%,
+        rgba(255,255,255,0.00) 58%);
+    animation: rightBlobA 10s ease-in-out infinite;
+  }
+
+  /* blob B */
+  .card.rightCard.isEmpty::after{
+    background:
+      radial-gradient(circle at 70% 55%,
+        rgba(255,255,255,0.14) 0%,
+        rgba(255,255,255,0.00) 62%);
+    animation: rightBlobB 10s ease-in-out infinite;
+  }
+
+  /* el iframe por encima */
+  .card.rightCard iframe{
+    position: relative;
+    z-index: 1;
+  }
+
+@keyframes rightBlobA{
+  0%   { transform: translate3d(-10%, -8%, 0) scale(1.02); }
+  35%  { transform: translate3d( 12%,  9%, 0) scale(1.10); }
+  70%  { transform: translate3d(  6%, -12%, 0) scale(0.98); }
+  100% { transform: translate3d(-10%, -8%, 0) scale(1.02); }
+}
+
+
+@keyframes rightBlobB{
+  0%   { transform: translate3d( 10%,  8%, 0) scale(1.00); }
+  30%  { transform: translate3d(-12%,  12%, 0) scale(1.08); }
+  65%  { transform: translate3d( -6%, -12%, 0) scale(0.95); }
+  100% { transform: translate3d( 10%,  8%, 0) scale(1.00); }
+}
+
+
+  @media (prefers-reduced-motion: reduce){
+    .card.rightCard.isEmpty::before,
+    .card.rightCard.isEmpty::after{
+      animation: none !important;
+    }
+  }
+}
 
 </style>
 </head>
@@ -1650,7 +1742,7 @@ body.loaded .panel{
   <span class="v" id="rounds">0</span>
 
 </div>
-
+<div class="status topStatus" id="topStatus"></div>
    <div class="controlsRow">
     <div class="actions">
     <button class="btn btnTight" id="btnNext">
@@ -1782,6 +1874,8 @@ function modelosEmbedUrl(modelId){
 const elStreak = $("#streak");
 
   const elStatus = $("#status");
+    const elTopStatus = $("#topStatus");
+
   const elLabel  = $("#modelLabel");
   const elAuth   = $("#modelAuthors");
 const elPhoto  = $("#photo");
@@ -2041,33 +2135,52 @@ function fadeInIframe(iframe, loadingHostEl){
 function setRevealedPanel(model, revealOn){
   if(!elFrame) return;
 
+  const rightCard = elFrame.closest(".card.rightCard") || elFrame.parentElement;
+
   if(!model || !revealOn){
     // limpio
     elFrame.removeAttribute("src");
     elFrame.src = "about:blank";
+
+    // ✅ marca “vacío” (para blobs en desktop)
+    if(rightCard) rightCard.classList.add("isEmpty");
     return;
   }
 
   if(isMobile()) return; // en móvil no usamos el iframe lateral
-fadeInIframe(elFrame, elFrame.closest(".card.rightCard") || elFrame.parentElement);
-elFrame.src = modelosEmbedUrl(model.id);
 
+  // ✅ ya hay contenido: quita blobs
+  if(rightCard) rightCard.classList.remove("isEmpty");
 
+  fadeInIframe(elFrame, rightCard);
+  elFrame.src = modelosEmbedUrl(model.id);
 }
+
 
 function setStatus(html, on=true, kind=""){
-  elStatus.innerHTML = html;
+  const desktop = !isMobile(); // tu helper ya existe
 
-  // on/off
-  elStatus.classList.toggle("is-on", !!on);
+  // destino: desktop -> topStatus, móvil -> status inferior
+  const target = (desktop && elTopStatus) ? elTopStatus : elStatus;
+  const other  = (target === elStatus) ? elTopStatus : elStatus;
 
-  // estilo unificado con el indicador móvil (fsResult)
-  elStatus.classList.add("fsResult");
-  elStatus.classList.remove("ok","bad");
+  // pinta en el destino
+  target.innerHTML = html;
+  target.classList.toggle("is-on", !!on);
 
-  if(kind === "ok")  elStatus.classList.add("ok");
-  if(kind === "bad") elStatus.classList.add("bad");
+  // estilo unificado
+  target.classList.add("fsResult");
+  target.classList.remove("ok","bad");
+  if(kind === "ok")  target.classList.add("ok");
+  if(kind === "bad") target.classList.add("bad");
+
+  // apaga el otro para que no se duplique
+  if(other){
+    other.classList.remove("is-on","ok","bad","fsResult");
+    other.innerHTML = "";
+  }
 }
+
 
 
   function lockOptions(){

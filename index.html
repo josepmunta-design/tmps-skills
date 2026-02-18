@@ -1602,6 +1602,34 @@ body.loaded .panel{
     -webkit-backdrop-filter: none !important;
   }
 }
+/* =========================
+   IFRAME FADE-IN (desktop + móvil)
+   Nunca deja el iframe invisible “para siempre”
+   ========================= */
+
+/* Desktop: #modelFrame vive dentro de .card.rightCard */
+.card.rightCard .modelFrame{
+  opacity: 1;
+  transform: none;
+  transition: opacity .22s ease, transform .22s ease;
+}
+
+.card.rightCard.isLoadingFrame .modelFrame{
+  opacity: 0;
+  transform: translateY(6px);
+}
+
+/* Móvil: iframe vive dentro de #fsBody como .fsIframe */
+#fsBody .fsIframe{
+  opacity: 1;
+  transform: none;
+  transition: opacity .22s ease, transform .22s ease;
+}
+
+#fsBody.isLoadingFrame .fsIframe{
+  opacity: 0;
+  transform: translateY(6px);
+}
 
 </style>
 </head>
@@ -2004,6 +2032,23 @@ function extractMicrosFromModel(modelJson){
 }
 
 
+function fadeInIframe(iframe, loadingHostEl){
+  if(!iframe || !loadingHostEl) return;
+
+  // 1) marca “cargando” (lo oculta suavemente)
+  loadingHostEl.classList.add("isLoadingFrame");
+
+  // 2) cuando carga, lo mostramos
+  const done = ()=>{
+    loadingHostEl.classList.remove("isLoadingFrame");
+  };
+
+  // importante: {once:true} para no acumular listeners
+  iframe.addEventListener("load", done, { once:true });
+
+  // 3) failsafe: aunque no dispare load (bloqueos raros), NUNCA se queda invisible
+  setTimeout(done, 2500);
+}
 
 function setRevealedPanel(model, revealOn){
   if(!elFrame) return;

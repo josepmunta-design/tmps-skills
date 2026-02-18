@@ -612,6 +612,12 @@ select.select{
     border-radius: 14px; 
   display: block;
   background: transparent;
+    transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform;
+
 }
 
 
@@ -635,6 +641,12 @@ select.select{
   border: 0;
   display: block;
   background: transparent;
+    transform: translateZ(0);
+  -webkit-transform: translateZ(0);
+  backface-visibility: hidden;
+  -webkit-backface-visibility: hidden;
+  will-change: transform;
+
 }
 
 
@@ -1562,6 +1574,33 @@ body.loaded .panel{
   box-shadow: none !important;
 
   padding: 6px 4px 4px !important;
+}
+/* =========================
+   iOS/Safari: evitar flicker del iframe
+   ========================= */
+@media (max-width: 900px){
+
+  /* 1) Lo más conflictivo: blobs animados */
+  .bg-blobs{
+    display: none !important;
+  }
+
+  /* 2) La “respiración” del panel repinta todo */
+  .panel::before{
+    animation: none !important;
+  }
+
+  /* 3) Backdrop-filter en contenedores grandes + iframe = flicker en iOS */
+  .panel{
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
+}
+@media (max-width: 900px){
+  .fsOverlay{
+    backdrop-filter: none !important;
+    -webkit-backdrop-filter: none !important;
+  }
 }
 
 </style>

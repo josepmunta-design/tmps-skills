@@ -1855,10 +1855,12 @@ const PHOTOS_BASE_URL = gh('Core/fotos/');
 // ✅ URL BASE de la app de MODELOS (para iframe)
 const MODELOS_APP_BASE = "https://modelos.tumentorpsicologia.com/apps/modelos/index.html";
 
-function modelosEmbedUrl(modelId){
+function modelosEmbedUrl(modelId, school){
   // cache-buster para forzar que el iframe abra el modelo correcto siempre
-  return `${MODELOS_APP_BASE}?embed=1&solo=1&open=${encodeURIComponent(modelId)}&t=${Date.now()}`;
+  const s = (school || "").trim();
+  return `${MODELOS_APP_BASE}?embed=1&solo=1&open=${encodeURIComponent(modelId)}${s ? `&school=${encodeURIComponent(s)}` : ""}&t=${Date.now()}`;
 }
+
 
 
 
@@ -2153,7 +2155,8 @@ function setRevealedPanel(model, revealOn){
   if(rightCard) rightCard.classList.remove("isEmpty");
 
   fadeInIframe(elFrame, rightCard);
-  elFrame.src = modelosEmbedUrl(model.id);
+   elFrame.src = modelosEmbedUrl(model.id, model.grupo);
+
 }
 
 
@@ -2258,7 +2261,8 @@ fsBody.innerHTML = `
     loading="eager"
     referrerpolicy="no-referrer"
     tabindex="0"
-    src="${modelosEmbedUrl(model.id)}"
+       src="${modelosEmbedUrl(model.id, model.grupo)}"
+
   ></iframe>
 `;
 

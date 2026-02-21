@@ -2832,6 +2832,266 @@ select.select{
   }
 }
 
+/* =========================
+   Theme Toggle FAB
+   ========================= */
+.theme-fab{
+  position: fixed;
+  right: 16px;
+  bottom: 16px;
+  z-index: 2147483000;
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.16);
+  display: grid;
+  place-items: center;
+  background: rgba(15,22,32,0.72);
+  color: rgba(231,237,245,0.95);
+  cursor: pointer;
+  box-shadow: 0 10px 24px rgba(0,0,0,.45), inset 0 1px 0 rgba(255,255,255,.08);
+}
+.theme-fab:hover{ transform: translateY(-1px); }
+.theme-fab svg{ width: 20px; height: 20px; }
+
+/* =========================
+   Scoped Light Theme
+   ========================= */
+body.theme-light{
+  --bg: #f3f6fb !important;
+  --panelA: rgba(255,255,255,0.86) !important;
+  --panelB: rgba(255,255,255,0.72) !important;
+  --text: #1d1d1f !important;
+  --muted: #5b6472 !important;
+  --muted2: #7a8494 !important;
+  --accent: #0a84ff !important;
+  --panelGlow: rgba(95, 146, 255, 0.12) !important;
+  color: #1d1d1f !important;
+  background:
+    radial-gradient(1200px 700px at 12% 12%, rgba(112,164,255,.20), transparent 56%),
+    radial-gradient(1000px 660px at 88% 20%, rgba(124,214,255,.18), transparent 58%),
+    radial-gradient(920px 640px at 50% 88%, rgba(182,166,255,.14), transparent 62%),
+    linear-gradient(180deg, #f7f9fd 0%, #eef3fa 100%) !important;
+}
+
+body.theme-light .bg-blobs{ filter: blur(72px) !important; opacity: .34 !important; }
+body.theme-light .panel{
+  background: linear-gradient(180deg, rgba(255,255,255,.86), rgba(255,255,255,.70)) !important;
+  border: 1px solid rgba(118,129,153,.20) !important;
+  box-shadow:
+    0 28px 70px rgba(27,45,79,0.14),
+    0 8px 24px rgba(27,45,79,0.10),
+    inset 0 1px 0 rgba(255,255,255,0.92) !important;
+}
+body.theme-light .panel::before{
+  background:
+    radial-gradient(560px 320px at 88% 12%, rgba(93,145,255,.18), transparent 64%),
+    radial-gradient(700px 420px at 18% 88%, rgba(125,186,255,.12), transparent 68%) !important;
+  mix-blend-mode: normal !important;
+  opacity: .68 !important;
+}
+
+body.theme-light .card,
+body.theme-light .card.rightCard,
+body.theme-light .status,
+body.theme-light .fsResult,
+body.theme-light .goFailedCard,
+body.theme-light .goTipCard,
+body.theme-light .goStat{
+  background: linear-gradient(180deg, rgba(255,255,255,.90), rgba(247,250,255,.78)) !important;
+  border: 1px solid rgba(118,129,153,.20) !important;
+  color: #1d1d1f !important;
+  box-shadow:
+    0 14px 34px rgba(24,44,74,.10),
+    inset 0 1px 0 rgba(255,255,255,.95) !important;
+}
+
+body.theme-light .title,
+body.theme-light .modelTitle,
+body.theme-light .goTitle,
+body.theme-light .ideaText,
+body.theme-light .authorName,
+body.theme-light .goFailedLabel{ color:#17181c !important; text-shadow:none !important; }
+body.theme-light .sub,
+body.theme-light .subtitle,
+body.theme-light .authorMeta,
+body.theme-light .goSubtitle,
+body.theme-light .goFailedMeta,
+body.theme-light .goFine,
+body.theme-light .fine,
+body.theme-light .modelMetaLine{ color:#5f6a7c !important; }
+body.theme-light .k, body.theme-light .score .k, body.theme-light .goStat .k, body.theme-light .goTipKicker, body.theme-light .eyebrow{ color:#6c778a !important; }
+body.theme-light .v, body.theme-light .score .v, body.theme-light .goStat .v{ color:#111217 !important; }
+
+body.theme-light .btn,
+body.theme-light .btn.btnSmall,
+body.theme-light .btn.btnTight,
+body.theme-light .goOpenModelBtn,
+body.theme-light .fsClose{
+  border: 1px solid rgba(118,129,153,.24) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.95), rgba(241,246,255,.84)) !important;
+  color: #1a1d24 !important;
+}
+body.theme-light .score{
+  background: linear-gradient(180deg, rgba(255,255,255,.92), rgba(245,249,255,.82)) !important;
+  border: 1px solid rgba(118,129,153,.22) !important;
+}
+body.theme-light .score .dot{
+  background: #0a84ff !important;
+  border-color: rgba(10,132,255,.65) !important;
+  box-shadow: 0 0 0 5px rgba(10,132,255,.16) !important;
+}
+body.theme-light .pill,
+body.theme-light #pillYear,
+body.theme-light #pillCode{
+  color: #1a1f29 !important;
+  border: 1px solid rgba(96,112,138,.30) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.98), rgba(240,246,255,.92)) !important;
+}
+body.theme-light select.select{
+  border: 1px solid rgba(118,129,153,.24) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(241,247,255,.85)) !important;
+  color: #1a1d24 !important;
+}
+body.theme-light .opt{
+  border: 1px solid rgba(118,129,153,.20) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.93), rgba(244,248,255,.84)) !important;
+  color: #171a22 !important;
+  text-shadow: none !important;
+}
+body.theme-light .opt > span{ color:#657186 !important; opacity:1 !important; }
+body.theme-light .goOverlay{
+  background: rgba(240,245,252,0.82) !important;
+  backdrop-filter: blur(12px) saturate(130%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(130%) !important;
+}
+body.theme-light .goShell{
+  border: 1px solid rgba(118,129,153,.24) !important;
+  background:
+    radial-gradient(940px 360px at 88% 12%, rgba(91,148,255,.14), transparent 65%),
+    linear-gradient(180deg, rgba(255,255,255,.96), rgba(246,250,255,.88)) !important;
+  box-shadow:
+    0 30px 80px rgba(20,42,78,.18),
+    inset 0 1px 0 rgba(255,255,255,.98) !important;
+}
+body.theme-light .goBadge{
+  border-color: rgba(118,129,153,.22) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.94), rgba(244,249,255,.84)) !important;
+  color: #2a3242 !important;
+}
+body.theme-light .goModelOverlay{
+  background: rgba(240,245,252,.90) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+body.theme-light .goModelClose{
+  background: #ffffff !important;
+  border: 1px solid rgba(118,129,153,.30) !important;
+  color: #11151d !important;
+}
+body.theme-light .theme-fab{
+  border: 1px solid rgba(118,129,153,.26);
+  background: linear-gradient(180deg, rgba(255,255,255,.96), rgba(241,246,255,.84));
+  color: #1a1d24;
+  box-shadow:
+    0 10px 24px rgba(26,43,72,0.16),
+    inset 0 1px 0 rgba(255,255,255,.98);
+}
+
+/* Light fixes: question area, feedback readability, options, game-over cards, empty-state life */
+body.theme-light .card.cardAir{
+  background: transparent !important;
+  border: none !important;
+  box-shadow: none !important;
+  overflow: visible !important;
+}
+
+body.theme-light .status.fsResult,
+body.theme-light #topStatus.fsResult,
+body.theme-light #fsResult.fsResult,
+body.theme-light .fsResult{
+  color: #1d2a3f !important;
+  border-color: rgba(88,107,136,.26) !important;
+  background: linear-gradient(180deg, rgba(255,255,255,.97), rgba(242,247,255,.92)) !important;
+}
+body.theme-light .fsResultTitle{
+  color: #1a2740 !important;
+  font-weight: 780 !important;
+}
+body.theme-light .fsResultPill{
+  color: #243755 !important;
+  border-color: rgba(88,107,136,.30) !important;
+  background: rgba(255,255,255,.92) !important;
+}
+body.theme-light .fsResultIcon{
+  color: #213455 !important;
+  border-color: rgba(88,107,136,.30) !important;
+  background: rgba(255,255,255,.95) !important;
+}
+body.theme-light .fsResult.ok .fsResultTitle,
+body.theme-light .fsResult.ok .fsResultPill,
+body.theme-light .fsResult.ok .fsResultIcon{
+  color: #166a41 !important;
+}
+body.theme-light .fsResult.bad .fsResultTitle,
+body.theme-light .fsResult.bad .fsResultPill,
+body.theme-light .fsResult.bad .fsResultIcon{
+  color: #8e2724 !important;
+}
+
+body.theme-light .opt.correct{
+  border-color: rgba(34,168,95,.62) !important;
+  background: linear-gradient(180deg, rgba(52,199,89,.28), rgba(255,255,255,.95)) !important;
+  box-shadow:
+    0 0 0 2px rgba(52,199,89,.24),
+    0 10px 24px rgba(24,44,74,.14),
+    inset 0 1px 0 rgba(255,255,255,.98) !important;
+}
+body.theme-light .opt.wrong{
+  border-color: rgba(220,66,59,.62) !important;
+  background: linear-gradient(180deg, rgba(255,59,48,.26), rgba(255,255,255,.95)) !important;
+  box-shadow:
+    0 0 0 2px rgba(255,59,48,.22),
+    0 10px 24px rgba(24,44,74,.14),
+    inset 0 1px 0 rgba(255,255,255,.98) !important;
+}
+body.theme-light .opt.correct > span{ color: #1e5a3c !important; }
+body.theme-light .opt.wrong > span{ color: #7e2d2a !important; }
+body.theme-light .opt{
+  box-shadow:
+    0 3px 8px rgba(26,46,78,.08),
+    inset 0 1px 0 rgba(255,255,255,.98) !important;
+}
+body.theme-light .opt:hover{
+  box-shadow:
+    0 5px 12px rgba(26,46,78,.11),
+    inset 0 1px 0 rgba(255,255,255,.99) !important;
+}
+
+body.theme-light .goFailedCard{
+  min-height: 102px !important;
+  padding: 9px 10px !important;
+}
+body.theme-light .goFailedActions{
+  margin-top: 6px !important;
+}
+@media (max-width: 900px){
+  body.theme-light .goFailedCard{
+    min-height: 96px !important;
+  }
+}
+
+@media (min-width: 901px){
+  body.theme-light .card.rightCard.isEmpty::before{
+    opacity: .58 !important;
+    background: radial-gradient(circle at 28% 34%, rgba(86,144,255,.30) 0%, rgba(86,144,255,0) 62%) !important;
+  }
+  body.theme-light .card.rightCard.isEmpty::after{
+    opacity: .52 !important;
+    background: radial-gradient(circle at 72% 58%, rgba(88,193,188,.26) 0%, rgba(88,193,188,0) 62%) !important;
+  }
+}
+
 </style>
 </head>
 
@@ -2932,6 +3192,14 @@ select.select{
       </div>
     </section>
   </div>
+
+  <button class="theme-fab" id="btnThemeMode" type="button" aria-label="Cambiar tema" title="Cambiar tema">
+    <svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+      <path d="M12 4.5v2.2M12 17.3v2.2M4.5 12h2.2M17.3 12h2.2M6.9 6.9l1.6 1.6M15.5 15.5l1.6 1.6M17.1 6.9l-1.6 1.6M8.5 15.5l-1.6 1.6M12 15.8a3.8 3.8 0 1 0 0-7.6a3.8 3.8 0 0 0 0 7.6Z"
+        stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+    </svg>
+  </button>
+
 <!-- FULLSCREEN (móvil) -->
 <div class="fsOverlay" id="fsOverlay" aria-hidden="true">
   <div class="fsSheet" role="dialog" aria-modal="true" aria-label="Detalle del modelo">
@@ -3024,10 +3292,53 @@ const LOCAL_MODELOS_APP_BASE  = new URL("../Modelos/index.html", location.href).
 const MODELOS_APP_BASE = (new URLSearchParams(location.search).get("modelosBase") ||
   (location.protocol === "file:" ? LOCAL_MODELOS_APP_BASE : REMOTE_MODELOS_APP_BASE));
 
+const THEME_KEY = "tmps_skills_theme";
+const THEME_LIGHT = "light";
+const THEME_DARK = "dark";
+
+function getCurrentThemeMode(){
+  return document.body.classList.contains("theme-light") ? THEME_LIGHT : THEME_DARK;
+}
+
+function setThemeButtonIcon(mode){
+  const b = document.getElementById("btnThemeMode");
+  if(!b) return;
+  const isDark = (mode === THEME_DARK);
+  b.innerHTML = isDark
+    ? `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+         <path d="M12 4.5v2.2M12 17.3v2.2M4.5 12h2.2M17.3 12h2.2M6.9 6.9l1.6 1.6M15.5 15.5l1.6 1.6M17.1 6.9l-1.6 1.6M8.5 15.5l-1.6 1.6M12 15.8a3.8 3.8 0 1 0 0-7.6a3.8 3.8 0 0 0 0 7.6Z"
+           stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+       </svg>`
+    : `<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">
+         <path d="M14.8 4.2a7.8 7.8 0 1 0 5 13.8a8.6 8.6 0 1 1-5-13.8Z"
+           stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+       </svg>`;
+  b.setAttribute("title", isDark ? "Cambiar a claro" : "Cambiar a oscuro");
+  b.setAttribute("aria-label", isDark ? "Cambiar a claro" : "Cambiar a oscuro");
+}
+
+function applyTheme(mode, persist=true){
+  const useLight = (mode === THEME_LIGHT);
+  document.body.classList.toggle("theme-light", useLight);
+  setThemeButtonIcon(useLight ? THEME_LIGHT : THEME_DARK);
+  if (persist){
+    localStorage.setItem(THEME_KEY, useLight ? THEME_LIGHT : THEME_DARK);
+  }
+}
+
+// Tema inicial: URL ?theme=light|dark tiene prioridad; si no, localStorage; fallback dark
+const qsTheme = String(new URLSearchParams(location.search).get("theme") || "").toLowerCase();
+const forcedTheme = (qsTheme === THEME_LIGHT || qsTheme === THEME_DARK) ? qsTheme : "";
+applyTheme(
+  forcedTheme || (localStorage.getItem(THEME_KEY) === THEME_LIGHT ? THEME_LIGHT : THEME_DARK),
+  false
+);
+
 function modelosEmbedUrl(modelId, school){
   // cache-buster para forzar que el iframe abra el modelo correcto siempre
   const s = (school || "").trim();
-  return `${MODELOS_APP_BASE}?embed=1&solo=1&open=${encodeURIComponent(modelId)}${s ? `&school=${encodeURIComponent(s)}` : ""}&t=${Date.now()}`;
+  const theme = getCurrentThemeMode();
+  return `${MODELOS_APP_BASE}?embed=1&solo=1&open=${encodeURIComponent(modelId)}${s ? `&school=${encodeURIComponent(s)}` : ""}&theme=${encodeURIComponent(theme)}&t=${Date.now()}`;
 }
 
 
@@ -3079,6 +3390,7 @@ const btnGoModelClose = $("#btnGoModelClose");
 const elGoModelFrame = $("#goModelFrame");
 const elGoCopyHint = $("#goCopyHint");
 const elGoFineText = $("#goFineText");
+const btnThemeMode = $("#btnThemeMode");
 
 
 
@@ -3099,6 +3411,8 @@ let bestStreakEver = Number(localStorage.getItem("tmps_bestStreak") || 0);
 let FAILED_MODELS = [];
 let livesAnimTimer = null;
 let LAST_GO_TIP_INDEX = -1;
+let LAST_REVEAL_MODEL = null;
+let LAST_GO_MODEL = null;
 
 const GO_TIPS = [
   "Si lees inconsciente, defensas o transferencia, piensa primero en modelos psicodinamicos.",
@@ -3665,6 +3979,7 @@ function setRevealedPanel(model, revealOn){
   const rightCard = elFrame.closest(".card.rightCard") || elFrame.parentElement;
 
   if(!model || !revealOn){
+    LAST_REVEAL_MODEL = null;
     // limpio
     elFrame.removeAttribute("src");
     elFrame.src = "about:blank";
@@ -3678,6 +3993,7 @@ function setRevealedPanel(model, revealOn){
 
   // ✅ ya hay contenido: quita blobs
   if(rightCard) rightCard.classList.remove("isEmpty");
+  LAST_REVEAL_MODEL = model;
 
   fadeInIframe(elFrame, rightCard);
    elFrame.src = modelosEmbedUrl(model.id, model.grupo);
@@ -3740,6 +4056,7 @@ function openFsPanel(model, isCorrect){
 
   if(!isMobile()) return;
   if(!model) return;
+  LAST_REVEAL_MODEL = model;
 
   const label = escapeHtml(model.label || model.id || "—");
   const autores = escapeHtml(model.autores || "—");
@@ -3848,6 +4165,7 @@ function closeGameOverOverlay(){
 
 function openGoModelOverlay(url){
   if(!goModelOverlay || !elGoModelFrame || !url) return;
+  LAST_GO_MODEL = url;
   elGoModelFrame.src = url;
   goModelOverlay.classList.add("is-on");
   goModelOverlay.setAttribute("aria-hidden","false");
@@ -3858,6 +4176,7 @@ function closeGoModelOverlay(){
   goModelOverlay.classList.remove("is-on");
   goModelOverlay.setAttribute("aria-hidden","true");
   if(elGoModelFrame) elGoModelFrame.src = "about:blank";
+  LAST_GO_MODEL = null;
 }
 
 function pickGameOverTip(){
@@ -3915,6 +4234,26 @@ function openFailedModelPreview(modelId){
   }
 
   openGoModelOverlay(modelosEmbedUrl(model.id, model.grupo));
+}
+
+function rethemeEmbeddedIframes(){
+  if (LAST_REVEAL_MODEL){
+    setRevealedPanel(LAST_REVEAL_MODEL, true);
+  }
+  const fsIfr = fsBody ? fsBody.querySelector("iframe.fsIframe") : null;
+  if (fsIfr && LAST_REVEAL_MODEL){
+    fsIfr.src = modelosEmbedUrl(LAST_REVEAL_MODEL.id, LAST_REVEAL_MODEL.grupo);
+  }
+  if (goModelOverlay && goModelOverlay.classList.contains("is-on") && LAST_GO_MODEL){
+    try{
+      const u = new URL(LAST_GO_MODEL, location.href);
+      const openId = u.searchParams.get("open") || "";
+      const school = u.searchParams.get("school") || "";
+      if (openId){
+        elGoModelFrame.src = modelosEmbedUrl(openId, school);
+      }
+    }catch(e){}
+  }
 }
 
 function pulseHudValue(el, kind){
@@ -4369,6 +4708,14 @@ $("#btnNext").addEventListener("click", ()=>{
 
 
 $("#btnReset").addEventListener("click", ()=> resetGame());
+
+if(btnThemeMode){
+  btnThemeMode.addEventListener("click", ()=>{
+    const next = (getCurrentThemeMode() === THEME_DARK) ? THEME_LIGHT : THEME_DARK;
+    applyTheme(next, true);
+    rethemeEmbeddedIframes();
+  });
+}
 
 // botón siguiente del fullscreen (móvil)
 btnNextFs.addEventListener("click", ()=>{

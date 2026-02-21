@@ -1217,12 +1217,15 @@ body.gameover-on{
 
 @media (max-width: 900px){
   .goOverlay{
-    padding: 12px;
-    align-items: flex-end;
+    padding: max(0px, env(safe-area-inset-top)) 10px 10px;
+    align-items: flex-start;
   }
   .goShell{
     width: 100%;
     border-radius: 20px;
+    margin-top: 0;
+    max-height: calc(100dvh - max(0px, env(safe-area-inset-top)) - 10px);
+    overflow: auto;
   }
   .goHead{ padding: 13px 14px 10px; }
   .goBody{ padding: 10px 14px 14px; }
@@ -2492,6 +2495,69 @@ select.select{
   }
 }
 
+
+/* =========================
+   Game Over Final Polish
+   ========================= */
+.goShell{
+  border-radius: 20px;
+  border-color: rgba(255,255,255,0.16);
+  background:
+    radial-gradient(900px 340px at 14% -10%, rgba(255,255,255,0.13), transparent 58%),
+    radial-gradient(760px 320px at 85% 18%, color-mix(in srgb, var(--schoolColor) 18%, transparent), transparent 68%),
+    linear-gradient(180deg, rgba(21,29,40,0.96), rgba(11,16,24,0.97));
+  box-shadow:
+    0 20px 56px rgba(0,0,0,0.52),
+    inset 0 1px 0 rgba(255,255,255,0.12);
+}
+.goHead{ padding: 14px 16px 10px; }
+.goBody{ padding: 12px 16px 16px; }
+.goTitle{ font-size: clamp(34px, 5vw, 56px); letter-spacing: -0.034em; }
+.goSubtitle{ margin-top: 8px; line-height: 1.44; color: rgba(228,236,247,0.80); }
+.goStats{ margin-top: 12px; }
+.goActions{ margin-top: 12px; }
+
+.goTipCard{
+  margin-top: 12px;
+  padding: 12px 13px;
+  border-radius: 14px;
+  border: 1px solid color-mix(in srgb, var(--schoolColor) 34%, rgba(255,255,255,0.14));
+  background:
+    radial-gradient(420px 180px at 88% 10%, color-mix(in srgb, var(--schoolColor) 20%, transparent), transparent 66%),
+    linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+  box-shadow:
+    0 10px 28px rgba(0,0,0,0.28),
+    0 0 0 1px rgba(255,255,255,0.03) inset;
+}
+.goTipKicker{
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: rgba(231,237,245,0.74);
+  margin-bottom: 6px;
+}
+.goTipCard .goFine{
+  margin-top: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: rgba(242,247,253,0.94);
+}
+
+.goReviewTitle{ margin-top: 12px; font-size: 13.5px; color: rgba(236,242,251,0.92); }
+.goFailedGrid{ margin-top: 8px; gap: 8px; }
+.goFailedCard{ border-radius: 12px; }
+
+.goModelClose{
+  background: #0c1520 !important;
+  border: 1px solid rgba(255,255,255,0.42) !important;
+  box-shadow: 0 10px 28px rgba(0,0,0,0.62) !important;
+}
+
+@media (max-width: 900px){
+  .goTipCard .goFine{ font-size: 13px; }
+}
+
 </style>
 </head>
 
@@ -2635,11 +2701,15 @@ select.select{
         <button class="btn btnSmall" id="btnCopyResult">Copiar resultado</button>
       </div>
 
+      <div class="goTipCard">
+        <div class="goTipKicker">Tip clinico para discriminar modelos</div>
+        <div class="goFine" id="goFineText">Tip: lee las fichas de los modelos para mejorar tus puntuaciones.</div>
+      </div>
+
       <div class="goReviewTitle">Revisa estos modelos para mejorar la próxima vez.</div>
       <div class="goFailedGrid" id="goFailedGrid"></div>
 
       <div class="goCopyHint" id="goCopyHint"></div>
-      <div class="goFine">Tip: lee las fichas de los modelos para mejorar tus puntuaciones.</div>
     </div>
   </section>
 </div>
@@ -2730,6 +2800,7 @@ const goModelOverlay = $("#goModelOverlay");
 const btnGoModelClose = $("#btnGoModelClose");
 const elGoModelFrame = $("#goModelFrame");
 const elGoCopyHint = $("#goCopyHint");
+const elGoFineText = $("#goFineText");
 
 
 
@@ -2749,6 +2820,110 @@ let bestStreakEver = Number(localStorage.getItem("tmps_bestStreak") || 0);
 
 let FAILED_MODELS = [];
 let livesAnimTimer = null;
+let LAST_GO_TIP_INDEX = -1;
+
+const GO_TIPS = [
+  "Si lees inconsciente, defensas o transferencia, piensa primero en modelos psicodinamicos.",
+  "Si el texto habla de contingencias, refuerzo o extincion, la pista suele ser conductual.",
+  "Cuando aparecen distorsiones cognitivas, reestructuracion o creencias nucleares, mira escuela cognitiva.",
+  "Exposicion mas evitacion suele apuntar a modelos conductuales o cognitivo-conductuales.",
+  "Si ves alianza, empatia y aceptacion incondicional, suele haber base humanista.",
+  "Sistema, patrones relacionales y reencuadre son pistas tipicas de enfoques sistemicos.",
+  "Cuando el foco esta en narrativa e identidad, piensa en constructivismo y terapias narrativas.",
+  "Si aparece mentalizacion, la clave es como la persona entiende estados mentales propios y ajenos.",
+  "Esquemas tempranos y modos suelen discriminar terapia de esquemas frente a TCC clasica.",
+  "En ACT, la pista no es reducir malestar, sino aumentar flexibilidad psicologica y accion valiosa.",
+  "Desfusion, aceptacion y valores son terminologia de ACT mas que de reestructuracion cognitiva.",
+  "Si el concepto central es excepcion al problema y objetivos breves, piensa en centrada en soluciones.",
+  "Cuando se habla de posicion del terapeuta y circularidad, suele ser sistemico estrategico o Milan.",
+  "Relacion terapeutica como factor de cambio atraviesa escuelas, pero en humanista es nucleo explicito.",
+  "Si la intervencion se formula como analisis funcional, la brujula principal es conductual contextual.",
+  "En DBT, distingue validacion, regulacion emocional y tolerancia al malestar.",
+  "Si el texto menciona apego y regulacion interpersonal, compara psicodinamico contemporaneo y mentalizacion.",
+  "Cuando ves experimentos conductuales, suele ser TCC orientada a contraste de hipotesis.",
+  "Microrrupturas y reparacion de alianza ayudan a diferenciar modelos centrados en proceso relacional.",
+  "Si un modelo prioriza significado personal sobre verdad objetiva, suele acercarse al constructivismo.",
+  "Si la palabra clave es insight, suele haber matriz psicodinamica o experiencia emocional correctiva.",
+  "Si se insiste en aqui y ahora corporal o experiencial, suele haber influencia gestalt o humanista.",
+  "Si aparece jerarquia de exposicion, piensa en terapia conductual clasica.",
+  "Si aparece activacion conductual y evitacion pasiva, suele ser depresion en marco cognitivo-conductual.",
+  "Si se nombra metacognicion y relacion con el pensamiento, puede ser metacognitiva o tercera ola.",
+  "Si el lenguaje es pragmatico y orientado a tarea breve, mira modelos estrategicos.",
+  "Si se habla de triangulos relacionales y escenas repetidas, probable lectura psicodinamica.",
+  "Si se usa funcion de la conducta en contexto, suele ser analisis funcional contextual.",
+  "Si se enfatiza autenticidad del terapeuta, suele acercarse a enfoques humanistas.",
+  "Si el cambio se vincula a resignificacion de experiencia, piensa en constructivista.",
+  "Si la tecnica principal es role-play de habilidades, suele ser cognitivo-conductual o DBT.",
+  "Si el foco es patron de comunicacion familiar, probablemente sistemico.",
+  "Si aparece triangulacion familiar, mapa claro hacia sistemico.",
+  "Si se habla de defensa narcisista, escision o idealizacion, suele ser psicodinamico.",
+  "Si se mencionan autorregistros y tareas para casa, pista TCC.",
+  "Si hay trabajo con silla vacia o polaridades, pista gestalt.",
+  "Si aparecen excepciones, escala de avance y pregunta milagro, centrada en soluciones.",
+  "Si el concepto clave es valores y compromiso, mira ACT antes que TCC clasica.",
+  "Si aparece validacion dialectica junto a cambio, probablemente DBT.",
+  "Si el foco es trauma con reprocesamiento bilateral, piensa en EMDR.",
+  "Si se enfatiza seguridad, estabilizacion y ventana de tolerancia, pista trauma informado.",
+  "Si el objetivo es coherencia narrativa biografica, suele ser constructivista o narrativo.",
+  "Si se nombra self observador, suele aparecer en ACT y enfoques contemplativos.",
+  "Si se habla de mente sabia, termino muy DBT.",
+  "Si la pregunta es para que sirve el sintoma, mirada funcional y no solo descriptiva.",
+  "Si la tecnica busca romper intentos de solucion ineficaces, mira estrategico breve.",
+  "Si el encuadre y sus reglas son foco de conflicto, sesgo psicodinamico relacional.",
+  "Si se habla de diferenciacion del self, pista sistemica de Bowen.",
+  "Si se trabajan triangulos y lealtades invisibles, mira sistemica intergeneracional.",
+  "Si se usa psicoeducacion de sesgos atencionales, probable cognitivo.",
+  "Si se habla de fobia y habituacion, pista conductual clasica.",
+  "Si se nombra inhibicion reciproca, referencia conductual historica.",
+  "Si aparece condicionamiento clasico y operante juntos, base conductista.",
+  "Si el objetivo es reparacion de vinculo, mira enfoques relacionales o apego.",
+  "Si se destaca presencia terapeutica mas que tecnica, sesgo humanista.",
+  "Si la clave es externalizar el problema, pista narrativa.",
+  "Si se utilizan documentos terapeuticos y testigos externos, narrativa pura.",
+  "Si se habla de rituales y prescripciones paradojicas, estrategico o sistemico.",
+  "Si hay reencuadre constante del problema, sello sistemico.",
+  "Si el sintoma se interpreta como solucion del sistema, mirada sistemica.",
+  "Si se diferencia pensamiento de hecho, enfoque cognitivo.",
+  "Si se enfatiza aceptacion de emociones sin fusion, tercera ola.",
+  "Si se prioriza exposicion interoceptiva, pista panico en TCC.",
+  "Si se usan experimentos para desconfirmar creencias, sello Beckiano.",
+  "Si aparecen esquemas de abandono o exigencia, terapia de esquemas.",
+  "Si la tecnica principal es imagineria rescripting, pista esquemas o trauma.",
+  "Si se busca reparentalizacion limitada, senal de terapia de esquemas.",
+  "Si se trabaja con partes internas, puede ser IFS u otros enfoques de partes.",
+  "Si se nombra compasion focalizada y voz critica, puede ser CFT.",
+  "Si la pregunta clave es que necesidad cubre esta conducta, enfoque integrativo.",
+  "Si se habla de factores comunes, alianza y expectativas, enfoque transversal.",
+  "Si se menciona teoria del cambio por fases, suele ser integrativo.",
+  "Si aparece ciclo de evitacion experiencial, ACT vuelve a ser candidato.",
+  "Si hay terminos como sobrecontrol emocional, puede aparecer RO-DBT.",
+  "Si se busca mentalizar bajo estres interpersonal, pista MBT.",
+  "Si se usan clarificacion, confrontacion e interpretacion, triada psicodinamica clasica.",
+  "Si se insiste en experiencia emocional correctiva en sesion, psicodinamico relacional.",
+  "Si se nombra desconfirmacion interpersonal, puente entre cognitivo e interpersonal.",
+  "Si el texto parece manualizado por modulos, suele ser CBT o DBT.",
+  "Si se estructura por agenda de sesion, tipico TCC.",
+  "Si aparece feedback de sesion y ajuste de alianza, enfoque monitorizado por proceso.",
+  "Si se habla de evocacion y ambivalencia, puede ser entrevista motivacional.",
+  "Si se usan OARS o lenguaje de cambio, pista entrevista motivacional.",
+  "Si se trabaja problema como historia dominante, narrativa.",
+  "Si se enfatiza contexto cultural y comunitario, mira modelos transculturales.",
+  "Si el modelo usa terminologia contemplativa, probablemente tercera ola.",
+  "Si el objetivo es disminuir fusion con contenido mental, ACT o metacognitivo.",
+  "Si la tecnica es parada de pensamiento, es mas conductual clasico que tercera ola.",
+  "Si se usa tolerancia al malestar con habilidades concretas, DBT.",
+  "Si aparece contrato conductual, pista conductual o cognitivo-conductual.",
+  "Si se trabaja cadena de conducta paso a paso, DBT o analisis funcional.",
+  "Si se formula vulnerabilidad biologica mas ambiente invalidante, DBT clasica.",
+  "Si se centra en patrones interpersonales repetidos, interpersonal o psicodinamico.",
+  "Si se habla de rol social y duelo, puede ser IPT.",
+  "Si se prioriza significado existencial del sintoma, tono humanista-existencial.",
+  "Si aparece libertad, responsabilidad y sentido, clave existencial.",
+  "Si el lenguaje es tecnico de aprendizaje, base conductista fuerte.",
+  "Si se formula por procesos transdiagnosticos, enfoque transversal moderno.",
+  "Si se comparan tecnicas y se cuida alianza, enfoque integrativo basado en evidencia.",
+  "Si un modelo usa mapas de procesos por caso, probablemente integrativo.",
+];
 
   /** pool de modelos (filtrado): [{id,label,grupo,year,autores,file,url}] */
   let MODELS = [];
@@ -3288,6 +3463,18 @@ function closeGoModelOverlay(){
   if(elGoModelFrame) elGoModelFrame.src = "about:blank";
 }
 
+function pickGameOverTip(){
+  if(!Array.isArray(GO_TIPS) || !GO_TIPS.length) return "Lee las fichas de los modelos para mejorar tus puntuaciones.";
+  if(GO_TIPS.length === 1) return GO_TIPS[0];
+
+  let idx = Math.floor(Math.random() * GO_TIPS.length);
+  if(idx === LAST_GO_TIP_INDEX){
+    idx = (idx + 1 + Math.floor(Math.random() * (GO_TIPS.length - 1))) % GO_TIPS.length;
+  }
+  LAST_GO_TIP_INDEX = idx;
+  return GO_TIPS[idx];
+}
+
 function addFailedModel(model){
   if(!model || !model.id) return;
   if(FAILED_MODELS.some(x => x.id === model.id)) return;
@@ -3583,6 +3770,7 @@ function gameOver(){
   // rellena overlay fullscreen
   if(elGoScore) elGoScore.textContent = String(score);
   if(elGoCopyHint) elGoCopyHint.textContent = "";
+  if(elGoFineText) elGoFineText.textContent = `Tip: ${pickGameOverTip()}`;
   renderFailedModels();
 
   openGameOverOverlay();

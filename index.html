@@ -2558,6 +2558,280 @@ select.select{
   .goTipCard .goFine{ font-size: 13px; }
 }
 
+
+/* =========================
+   Game Over Layout Tweak
+   ========================= */
+.goTopRow{
+  margin-top: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+}
+.goTopRow .goStats{
+  margin-top: 0;
+  max-width: 104px;
+  display: block;
+  flex: 0 0 auto;
+}
+.goTopRow .goStat{
+  width: 104px;
+  min-height: 98px;
+  border-radius: 14px;
+  padding: 10px 10px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+.goTopRow .goStat .k,
+.goTopRow .goStat .v{
+  text-align: center;
+}
+.goTopRow .goStat .v{
+  font-size: 28px;
+  margin-top: 2px;
+}
+.goTopAside{
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.goTopAside .goActions{
+  margin-top: 0;
+  display: flex;
+  align-items: center;
+  flex: 0 0 auto;
+}
+.goTopAside .goActions .btnSmall{
+  min-height: 42px;
+  padding: 10px 14px;
+}
+.goTopAside .goTipCard{
+  margin-top: 0;
+  padding: 10px 12px;
+  min-height: 42px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  flex: 1 1 auto;
+}
+.goTopAside .goTipKicker{
+  margin-bottom: 3px;
+}
+.goTopAside .goTipCard .goFine{
+  font-size: 13px;
+  line-height: 1.35;
+}
+
+@media (max-width: 900px){
+  .goTopRow{
+    flex-direction: row;
+    align-items: flex-start;
+    gap: 8px;
+  }
+  .goTopRow .goStat{
+    width: 92px;
+    min-height: 86px;
+  }
+  .goTopRow .goStat .v{
+    font-size: 24px;
+  }
+  .goTopAside{
+    width: 100%;
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    gap: 8px;
+    align-items: stretch;
+  }
+  .goTopAside .goActions{
+    align-items: stretch;
+  }
+  .goTopAside .goActions .btnSmall{
+    min-height: 40px;
+    white-space: nowrap;
+  }
+  .goTopAside .goTipCard{
+    min-height: 40px;
+    padding: 8px 10px;
+  }
+  .goTopAside .goTipKicker{
+    font-size: 9.5px;
+    margin-bottom: 2px;
+  }
+  .goTopAside .goTipCard .goFine{
+    font-size: 12px;
+    line-height: 1.3;
+  }
+}
+
+
+/* =========================
+   Game Over Redesign v3
+   ========================= */
+.goBody{
+  display: grid;
+  gap: 12px;
+}
+
+.goTopRow{
+  margin-top: 0 !important;
+  display: grid !important;
+  grid-template-columns: 118px minmax(170px, 220px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.goTopRow .goStats{
+  margin-top: 0 !important;
+  max-width: none !important;
+}
+
+.goTopRow .goStat{
+  width: 100% !important;
+  min-height: 96px !important;
+  padding: 10px !important;
+  border-radius: 14px !important;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+}
+
+.goTopRow .goStat .k,
+.goTopRow .goStat .v{
+  text-align: center;
+}
+
+.goTopRow .goStat .v{
+  font-size: 30px !important;
+  margin-top: 3px !important;
+}
+
+.goTopAside{
+  grid-column: 2 / -1;
+  min-width: 0;
+  display: grid !important;
+  grid-template-columns: minmax(170px, 220px) minmax(0, 1fr);
+  gap: 12px;
+  align-items: stretch;
+}
+
+.goTopAside .goActions{
+  margin-top: 0 !important;
+  display: flex;
+}
+
+.goTopAside .goActions .btnSmall{
+  width: 100%;
+  min-height: 96px;
+  border-radius: 14px;
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.goTopAside .goTipCard{
+  margin-top: 0 !important;
+  min-height: 96px;
+  padding: 12px 14px;
+  border-radius: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+}
+
+.goTopAside .goTipKicker{
+  margin-bottom: 5px !important;
+}
+
+.goTopAside .goTipCard .goFine{
+  margin-top: 0;
+  font-size: 14px;
+  line-height: 1.42;
+}
+
+.goReviewTitle{
+  margin-top: 0 !important;
+}
+
+.goFailedGrid{
+  margin-top: 0 !important;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.goFailedCard{
+  min-height: 124px;
+  display: flex;
+  flex-direction: column;
+}
+
+.goFailedActions{
+  margin-top: auto !important;
+}
+
+.goCopyHint{
+  display: none !important;
+}
+
+ @media (max-width: 900px){
+  .goBody{
+    gap: 10px;
+  }
+
+  .goTopRow{
+    grid-template-columns: 96px minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .goTopRow .goStat{
+    min-height: 86px !important;
+  }
+
+  .goTopRow .goStat .v{
+    font-size: 24px !important;
+  }
+
+  .goTopAside{
+    grid-column: 2;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 8px;
+  }
+
+  .goTopAside .goActions .btnSmall{
+    min-height: 42px;
+    font-size: 14px;
+    border-radius: 12px;
+  }
+
+  .goTopAside .goTipCard{
+    min-height: 58px;
+    padding: 9px 10px;
+    border-radius: 12px;
+  }
+
+  .goTopAside .goTipKicker{
+    font-size: 9.5px;
+    margin-bottom: 2px !important;
+  }
+
+  .goTopAside .goTipCard .goFine{
+    font-size: 12px;
+    line-height: 1.34;
+  }
+
+  .goFailedGrid{
+    grid-template-columns: minmax(0,1fr);
+    gap: 8px;
+  }
+
+  .goFailedCard{
+    min-height: 104px;
+  }
+}
+
 </style>
 </head>
 
@@ -2692,18 +2966,20 @@ select.select{
       <h2 class="goTitle">Game Over</h2>
       <p class="goSubtitle">Partida finalizada. Enfoca la revisión en los modelos que has fallado y vuelve a intentarlo.</p>
 
-      <div class="goStats">
-        <div class="goStat"><div class="k">Puntos</div><div class="v" id="goScore">0</div></div>
-      </div>
+      <div class="goTopRow">
+        <div class="goStats">
+          <div class="goStat"><div class="k">Puntos</div><div class="v" id="goScore">0</div></div>
+        </div>
 
-      <div class="goActions">
-        <button class="btn btnSmall" id="btnPlayAgain">Jugar otra vez</button>
-        <button class="btn btnSmall" id="btnCopyResult">Copiar resultado</button>
-      </div>
-
-      <div class="goTipCard">
-        <div class="goTipKicker">Tip clinico para discriminar modelos</div>
-        <div class="goFine" id="goFineText">Tip: lee las fichas de los modelos para mejorar tus puntuaciones.</div>
+        <div class="goTopAside">
+          <div class="goActions">
+            <button class="btn btnSmall" id="btnPlayAgain">Jugar otra vez</button>
+          </div>
+          <div class="goTipCard">
+            <div class="goTipKicker">Tip clínico para discriminar modelos</div>
+            <div class="goFine" id="goFineText">Lee las fichas de los modelos para mejorar tus puntuaciones.</div>
+          </div>
+        </div>
       </div>
 
       <div class="goReviewTitle">Revisa estos modelos para mejorar la próxima vez.</div>
@@ -3891,7 +4167,7 @@ function gameOver(){
   // rellena overlay fullscreen
   if(elGoScore) elGoScore.textContent = String(score);
   if(elGoCopyHint) elGoCopyHint.textContent = "";
-  if(elGoFineText) elGoFineText.textContent = `Tip: ${pickGameOverTip()}`;
+  if(elGoFineText) elGoFineText.textContent = pickGameOverTip();
   renderFailedModels();
 
   openGameOverOverlay();
@@ -4067,7 +4343,7 @@ document.addEventListener("click", (e)=>{
   if(b.disabled) return;
   onChoose(b.getAttribute("data-id"));
 });
-document.addEventListener("click", async (e)=>{
+document.addEventListener("click", (e)=>{
   const t = e.target;
 
   const openBtn = t && t.closest ? t.closest("button[data-open-model-id]") : null;
@@ -4079,24 +4355,6 @@ document.addEventListener("click", async (e)=>{
   if(t && t.id === "btnPlayAgain"){
     resetGame();
     return;
-  }
-
-  if(t && t.id === "btnCopyResult"){
-    const failedTxt = FAILED_MODELS.length
-      ? FAILED_MODELS.map(m => `- ${m.label} (${m.grupo || ""})`).join("\n")
-      : "- Ninguno";
-
-    const text =
-      `TMPS Quiz — Resultado\n` +
-      `Puntos: ${score}\n\n` +
-      `Modelos a revisar:\n${failedTxt}`;
-
-    try{
-      await navigator.clipboard.writeText(text);
-      if(elGoCopyHint) elGoCopyHint.textContent = "Copiado al portapapeles";
-    }catch(err){
-      if(elGoCopyHint) elGoCopyHint.textContent = "No he podido copiar (permiso del navegador)";
-    }
   }
 });
 

@@ -2730,6 +2730,8 @@ select.select{
 
 // Datos SIEMPRE desde tmps-data vía jsDelivr (estable en cualquier dominio)
 const GH_BASE = 'https://cdn.jsdelivr.net/gh/josepmunta-design/tmps-data@main/data';
+const GH_TREE_URL = 'https://api.github.com/repos/josepmunta-design/tmps-data/git/trees/main?recursive=1';
+const JSDELIVR_FLAT_URL = 'https://data.jsdelivr.com/v1/package/gh/josepmunta-design/tmps-data@main/flat';
 
 function gh(path){
   return `${GH_BASE}/${String(path).replace(/^\/+/,'')}`;
@@ -2943,6 +2945,8 @@ const GO_TIPS = [
   let PHOTO_BY_MODEL = {};
 /** mapa: modelId -> descripcion */
 let DESC_BY_MODEL = {};
+let REPO_MODEL_PATHS_LOWER = null;
+let REPO_MODEL_BASENAME_KEY_MAP = null;
 
   /** ronda actual */
   let CURRENT = null;
@@ -3084,14 +3088,133 @@ async function fetchJson(url, opts = {}){
   }
 }
 
+function normalizeFileKey(s){
+  return String(s || "")
+    .toLowerCase()
+    .normalize('NFD').replace(/[̀-ͯ]/g,'')
+    .replace(/\.json$/i,'')
+    .replace(/-\d{4}$/,'')
+    .replace(/[^a-z0-9]+/g,'-')
+    .replace(/^-+|-+$/g,'');
+}
+
+async function loadRepoModelIndex(){
+  const lowerMap = new Map();
+  const keyMap = new Map();
+
+  const ingestPath = (rawPath)=>{
+    const p = String(rawPath || '').replace(/^\/+/, '');
+    if(!/^data\/Core\/modelos\//i.test(p)) return;
+    if(!/\.json$/i.test(p)) return;
+
+    const corePath = p.replace(/^data\//i, ''); // Core/...
+    const low = corePath.toLowerCase();
+    if(!lowerMap.has(low)) lowerMap.set(low, corePath);
+
+    const base = corePath.split('/').pop() || '';
+    const key = normalizeFileKey(base);
+    if(key && !keyMap.has(key)) keyMap.set(key, corePath);
+  };
+
+  let loaded = false;
+
+  try{
+    const tree = await fetchJson(GH_TREE_URL, { bust: true, timeoutMs: 20000 });
+    const nodes = Array.isArray(tree?.tree) ? tree.tree : [];
+    for(const n of nodes){
+      if(n?.type === 'blob' && typeof n.path === 'string') ingestPath(n.path);
+    }
+    loaded = lowerMap.size > 0;
+  }catch(e){}
+
+  if(!loaded){
+    try{
+      const flat = await fetchJson(JSDELIVR_FLAT_URL, { bust: true, timeoutMs: 20000 });
+      const files = Array.isArray(flat?.files) ? flat.files : [];
+      for(const f of files){
+        if(typeof f?.name === 'string') ingestPath(f.name);
+      }
+      loaded = lowerMap.size > 0;
+    }catch(e){}
+  }
+
+  if(loaded){
+    REPO_MODEL_PATHS_LOWER = lowerMap;
+    REPO_MODEL_BASENAME_KEY_MAP = keyMap;
+    return true;
+  }
+
+  REPO_MODEL_PATHS_LOWER = null;
+  REPO_MODEL_BASENAME_KEY_MAP = null;
+  return false;
+}
+
+function resolveModelFileInRepo(file){
+  if(!REPO_MODEL_PATHS_LOWER || !REPO_MODEL_PATHS_LOWER.size) return null;
+
+  const f = String(file || '').replace(/^\/+/, '');
+  if(!f) return null;
+
+  const rels = [];
+  const add = (r)=>{ if(r && !rels.includes(r)) rels.push(r); };
+
+  add(`Core/${f.replace(/^Core\//,'')}`);
+
+  if(f.toLowerCase().startsWith('modelos/')){
+    const parts = f.split('/');
+    if(parts[1]){
+      const folder = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
+      add(`Core/${['modelos', folder, ...parts.slice(2)].join('/')}`);
+    }
+  }
+
+  const m = f.match(/^(.*)-\d{4}\.json$/i);
+  if(m && m[1]){
+    const noYear = `${m[1]}.json`;
+    add(`Core/${noYear.replace(/^Core\//,'')}`);
+
+    if(noYear.toLowerCase().startsWith('modelos/')){
+      const p2 = noYear.split('/');
+      if(p2[1]){
+        const folder2 = p2[1].charAt(0).toUpperCase() + p2[1].slice(1);
+        add(`Core/${['modelos', folder2, ...p2.slice(2)].join('/')}`);
+      }
+    }
+  }
+
+  for(const rel of rels){
+    const found = REPO_MODEL_PATHS_LOWER.get(rel.toLowerCase());
+    if(found) return found;
+  }
+
+  const base = f.split('/').pop() || '';
+  const key = normalizeFileKey(base);
+  if(key && REPO_MODEL_BASENAME_KEY_MAP?.has(key)){
+    return REPO_MODEL_BASENAME_KEY_MAP.get(key);
+  }
+
+  return null;
+}
+
 function modelUrlCandidates(file){
   const f = String(file || "").replace(/^\/+/, "");
   if(!f) return [];
 
+  // Si tenemos índice real del repo, NO pedimos rutas inexistentes
+  const resolved = resolveModelFileInRepo(f);
+  if(resolved){
+    return [gh(resolved)];
+  }
+
+  // Si hay índice cargado pero no hay match, evitamos 404 innecesarios
+  if(REPO_MODEL_PATHS_LOWER && REPO_MODEL_PATHS_LOWER.size){
+    return [];
+  }
+
+  // Fallback solo si no se pudo cargar índice del repo
   const files = [];
   const add = (x) => { if(x && !files.includes(x)) files.push(x); };
 
-  // 1) Prioriza carpeta con inicial mayúscula (evita 404 por case-sensitive)
   if (f.toLowerCase().startsWith("modelos/")){
     const parts = f.split("/");
     if (parts[1]){
@@ -3100,10 +3223,8 @@ function modelUrlCandidates(file){
     }
   }
 
-  // 2) Ruta original
   add(f);
 
-  // 3) Variante sin año final: ...-2000.json -> ... .json
   const yearSuffix = f.match(/^(.*)-\d{4}\.json$/i);
   if (yearSuffix && yearSuffix[1]){
     const noYear = `${yearSuffix[1]}.json`;
@@ -3810,7 +3931,8 @@ setStatus(`Origen: <b>${escapeHtml(location.origin)}</b> · Href: <b>${escapeHtm
 
      const [escuelasIndex, fotosJson] = await Promise.all([
   fetchJson(ESCUELAS_INDEX),
-  fetchJson(FOTOS_JSON_URL)
+  fetchJson(FOTOS_JSON_URL),
+  loadRepoModelIndex()
 ]);
 
 PHOTO_BY_MODEL = normalizePhotosJson(fotosJson);

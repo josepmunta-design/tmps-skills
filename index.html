@@ -110,6 +110,82 @@
   /* un pelín más “seguro” arriba en móvil */
   padding: max(16px, env(safe-area-inset-top)) 18px 26px;
 }
+@media (min-width: 901px){
+  .goOverlay{ padding: 22px; }
+
+  .goShell{
+    width: min(920px, 100%);
+    border-radius: 22px;
+    border-color: rgba(255,255,255,0.15);
+    box-shadow:
+      0 22px 64px rgba(0,0,0,0.52),
+      inset 0 1px 0 rgba(255,255,255,0.11);
+  }
+
+  .goHead{
+    padding: 14px 16px 10px;
+    gap: 10px;
+  }
+
+  .goBody{
+    padding: 12px 16px 16px;
+  }
+
+  .goTitle{
+    font-size: clamp(30px, 4vw, 50px);
+    letter-spacing: -0.03em;
+  }
+
+  .goSubtitle{
+    margin-top: 8px;
+    line-height: 1.46;
+    max-width: 68ch;
+  }
+
+  .goStats{
+    margin-top: 12px;
+    max-width: 188px;
+  }
+
+  .goStat{
+    border-radius: 13px;
+    padding: 10px 11px;
+  }
+
+  .goStat .v{
+    font-size: 24px;
+    margin-top: 2px;
+  }
+
+  .goActions{
+    margin-top: 12px;
+    gap: 8px;
+  }
+
+  .btn.btnSmall{
+    min-height: 36px;
+    padding: 8px 12px;
+  }
+
+  .goReviewTitle{
+    margin-top: 10px;
+  }
+
+  .goFailedGrid{
+    margin-top: 8px;
+    gap: 8px;
+  }
+
+  .goFailedCard{
+    border-radius: 12px;
+    padding: 9px 10px;
+  }
+
+  .goFailedActions{ margin-top: 7px; }
+
+  .goFine{ margin-top: 10px; }
+}
+
 @media (max-width: 900px){
   .app{
     padding: max(12px, env(safe-area-inset-top)) 12px 18px;
@@ -270,7 +346,7 @@
 
 .sub{
   margin: 0;
-  font-size: 13.5px;
+  font-size: 13px;
   line-height: 1.55;
   color: rgba(227,235,246,0.88);
   max-width: 72ch;
@@ -876,113 +952,283 @@ text-shadow: 0 0 12px rgba(0,0,0,0.35);
 }
 
     .status .small{ display:block; margin-top: 4px; font-weight:700; opacity:.75; }
-    
     /* =========================
-   GAME OVER (estética)
+   GAME OVER (fullscreen Apple)
    ========================= */
-.ideaText.is-gameover{
-  font-size: 22px;
-  font-weight: 950;
-  letter-spacing: -0.7px;
-  line-height: 1.05;
+body.gameover-on{
+  overflow: hidden !important;
 }
-.ideaText.is-gameover .goSub{
-  margin-top: 8px;
-  font-size: 13.5px;
-  font-weight: 750;
-  line-height: 1.45;
-  color: rgba(231,237,245,0.78);
-}
-.ideaText.is-gameover .goSub b{ color:#fff; font-weight: 950; }
 
-.status.gameover{
-  margin-top: 12px;
-  padding: 16px 16px;
-  border-radius: 18px;
-  border: 1px solid rgba(255,255,255,0.12);
+.goOverlay{
+  position: fixed;
+  inset: 0;
+  z-index: 2147483647;
+  display: none;
+  align-items: center;
+  justify-content: center;
+  padding: 20px;
+  background: rgba(10,14,20,0.70);
+  backdrop-filter: blur(12px) saturate(122%);
+  -webkit-backdrop-filter: blur(12px) saturate(122%);
+}
+.goOverlay.is-on{ display:flex; }
+
+.goShell{
+  position: relative;
+  width: min(980px, 100%);
+  border-radius: 24px;
+  border: 1px solid rgba(255,255,255,0.14);
   background:
-    radial-gradient(900px 180px at 20% 0%, rgba(255,255,255,0.08), transparent 60%),
-    linear-gradient(180deg, rgba(255,255,255,0.07), rgba(0,0,0,0.10));
+    radial-gradient(1100px 420px at 18% -20%, rgba(255,255,255,0.10), transparent 58%),
+    linear-gradient(180deg, rgba(20,28,39,0.96), rgba(12,17,25,0.95));
   box-shadow:
-    0 18px 70px rgba(0,0,0,.45),
-    inset 0 1px 0 rgba(255,255,255,0.08);
+    0 26px 80px rgba(0,0,0,0.56),
+    inset 0 1px 0 rgba(255,255,255,0.10);
+  overflow: hidden;
+}
+.goShell::after{
+  content:"";
+  position:absolute;
+  inset:0;
+  pointer-events:none;
+  background:
+    radial-gradient(460px 220px at 88% 12%, rgba(255,255,255,0.06), transparent 66%),
+    linear-gradient(180deg, rgba(255,255,255,0.04), transparent 28%);
+  opacity:.9;
 }
 
-.goTop{
+.goHead{
+  position: relative;
+  z-index: 1;
   display:flex;
-  align-items:flex-start;
+  align-items:center;
   justify-content:space-between;
-  gap:10px;
-  flex-wrap:wrap;
+  gap: 12px;
+  padding: 16px 18px 12px;
+  border-bottom: 1px solid rgba(255,255,255,0.08);
 }
 .goBadge{
   display:inline-flex;
   align-items:center;
   gap:8px;
-  padding: 6px 10px;
+  padding: 6px 11px;
   border-radius: 999px;
-  border: 1px solid rgba(255,255,255,0.12);
-  background: rgba(0,0,0,0.18);
-  font-size: 11px;
-  font-weight: 950;
-  letter-spacing: .6px;
+  border: 1px solid rgba(255,255,255,0.16);
+  background: rgba(0,0,0,0.22);
+  font-size: 10.5px;
+  font-weight: 800;
+  letter-spacing: .07em;
   text-transform: uppercase;
-  color: rgba(231,237,245,0.90);
+  color: rgba(238,244,252,0.92);
 }
-.goMeta{
-  font-size: 12px;
-  font-weight: 750;
-  color: rgba(231,237,245,0.70);
+.goBadgeDot{
+  width:8px;
+  height:8px;
+  border-radius:999px;
+  background: rgba(255,150,150,0.95);
+  box-shadow: 0 0 0 4px rgba(255,150,150,0.18);
+}
+.goClose{
+  width: 36px;
+  height: 36px;
+  border-radius: 11px;
+  padding: 0;
+  font-size: 17px;
+  line-height: 1;
+}
+
+.goBody{
+  position: relative;
+  z-index: 1;
+  padding: 14px 18px 18px;
+}
+.goTitle{
+  margin: 0;
+  font-size: clamp(32px, 5vw, 54px);
+  line-height: 1.01;
+  letter-spacing: -0.035em;
+  font-weight: 800;
+  color: rgba(247,250,255,0.98);
+}
+.goSubtitle{
+  margin: 10px 0 0;
+  max-width: 72ch;
+  font-size: 14px;
+  line-height: 1.52;
+  color: rgba(228,236,247,0.78);
 }
 
 .goStats{
-  margin-top: 12px;
+  margin-top: 14px;
   display:grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
+  max-width: 210px;
 }
-@media (max-width: 520px){
-  .goStats{ grid-template-columns: repeat(2, minmax(0,1fr)); }
-}
-
 .goStat{
-  border-radius: 16px;
-  border: 1px solid rgba(255,255,255,0.10);
-  background: rgba(0,0,0,0.14);
-  padding: 12px 12px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: linear-gradient(180deg, rgba(255,255,255,0.075), rgba(255,255,255,0.03));
+  box-shadow:
+    0 10px 26px rgba(0,0,0,.24),
+    inset 0 1px 0 rgba(255,255,255,.10);
+  padding: 11px 12px;
 }
 .goStat .k{
   font-size: 10px;
-  font-weight: 900;
-  letter-spacing: .7px;
+  font-weight: 800;
+  letter-spacing: .08em;
   text-transform: uppercase;
-  color: rgba(231,237,245,0.60);
+  color: rgba(231,237,245,0.62);
 }
 .goStat .v{
   margin-top: 4px;
-  font-size: 18px;
-  font-weight: 950;
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.03em;
   color:#fff;
 }
 
 .goActions{
   margin-top: 14px;
   display:flex;
-  gap:10px;
-  flex-wrap:wrap;
+  gap:9px;
+  flex-wrap: wrap;
 }
 .btn.btnSmall{
-  padding: 9px 12px;
-  border-radius: 14px;
+  min-height: 38px;
+  padding: 9px 13px;
+  border-radius: 11px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.goCopyHint{
+  margin-top: 10px;
+  min-height: 18px;
   font-size: 12px;
-  font-weight: 950;
+  color: rgba(231,237,245,0.80);
+}
+.goReviewTitle{
+  margin-top: 12px;
+  font-size: 13px;
+  font-weight: 700;
+  color: rgba(236,242,251,0.90);
+}
+.goFailedGrid{
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0,1fr));
+  gap: 10px;
+}
+.goFailedCard{
+  border-radius: 13px;
+  border: 1px solid rgba(255,255,255,0.12);
+  background: linear-gradient(180deg, rgba(255,255,255,0.07), rgba(255,255,255,0.03));
+  box-shadow: 0 8px 20px rgba(0,0,0,.22), inset 0 1px 0 rgba(255,255,255,.10);
+  padding: 10px 11px;
+}
+.goFailedCard.is-open{
+  border-color: rgba(130,224,170,.42);
+  background: linear-gradient(180deg, rgba(130,224,170,.14), rgba(255,255,255,.03));
+}
+.goFailedLabel{
+  font-size: 13px;
+  font-weight: 700;
+  line-height: 1.28;
+  color: rgba(245,249,255,0.96);
+}
+.goFailedMeta{
+  margin-top: 4px;
+  font-size: 11px;
+  font-weight: 600;
+  color: rgba(231,237,245,0.70);
+}
+.goFailedEmpty{
+  border-radius: 12px;
+  border: 1px dashed rgba(255,255,255,0.18);
+  background: rgba(255,255,255,0.03);
+  padding: 11px 12px;
+  font-size: 12px;
+  color: rgba(231,237,245,0.74);
+}
+.goFailedActions{ margin-top: 8px; }
+.goOpenModelBtn{
+  min-height: 30px !important;
+  padding: 6px 10px !important;
+  border-radius: 10px !important;
+  font-size: 11.5px !important;
+  font-weight: 700 !important;
+}
+.goOpenModelBtn.is-open{
+  border-color: rgba(130,224,170,.42) !important;
+  background: rgba(130,224,170,.14) !important;
+  color: rgba(222,248,235,0.98) !important;
 }
 
 .goFine{
   margin-top: 12px;
   font-size: 12px;
   line-height: 1.45;
-  color: rgba(231,237,245,0.68);
+  color: rgba(231,237,245,0.70);
+}
+
+.goModelOverlay{
+  position: fixed;
+  inset: 0;
+  z-index: 2147483648;
+  display: none;
+  background: rgba(7,10,15,0.86);
+  backdrop-filter: blur(8px) saturate(110%);
+  -webkit-backdrop-filter: blur(8px) saturate(110%);
+}
+.goModelOverlay.is-on{ display:block; }
+.goModelSheet{
+  position: absolute;
+  inset: 0;
+  background: #0b111a;
+}
+.goModelClose{
+  position: fixed;
+  top: 12px;
+  right: 12px;
+  z-index: 2147483649;
+  width: 42px;
+  height: 42px;
+  border-radius: 12px;
+  padding: 0;
+  font-size: 19px;
+  line-height: 1;
+  background: #0f1722 !important;
+  border: 1px solid rgba(255,255,255,0.32) !important;
+  color: #f3f7fd !important;
+  opacity: 1 !important;
+  box-shadow: 0 8px 24px rgba(0,0,0,0.55) !important;
+}
+.goModelFrame{
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  display:block;
+  background: transparent;
+}
+
+@media (max-width: 900px){
+  .goOverlay{
+    padding: 12px;
+    align-items: flex-end;
+  }
+  .goShell{
+    width: 100%;
+    border-radius: 20px;
+  }
+  .goHead{ padding: 13px 14px 10px; }
+  .goBody{ padding: 10px 14px 14px; }
+  .goStats{ max-width: none; }
+  .goFailedGrid{ grid-template-columns: minmax(0,1fr); }
+  .goStat .v{ font-size: 24px; }
 }
 
 .modelDesc{
@@ -2167,6 +2413,24 @@ select.select{
 .score .v.hudPulseUp{ animation: hudPulseUp .36s cubic-bezier(.22,.9,.22,1); }
 .score .v.hudPulseDown{ animation: hudPulseDown .36s cubic-bezier(.22,.9,.22,1); }
 
+@keyframes lifePendingDown{
+  0%   { color: rgba(255,255,255,.97); text-shadow: none; }
+  100% { color: #ff8f98; text-shadow: 0 0 14px rgba(255,120,120,.40); }
+}
+
+@keyframes lifePendingUp{
+  0%   { color: rgba(255,255,255,.97); text-shadow: none; }
+  100% { color: #9cf2c0; text-shadow: 0 0 14px rgba(130,224,170,.42); }
+}
+
+#lives.hudLifePendingDown{
+  animation: lifePendingDown .22s ease forwards;
+}
+
+#lives.hudLifePendingUp{
+  animation: lifePendingUp .22s ease forwards;
+}
+
 /* Opciones: look Apple más sobrio */
 .opt{
   border-radius: 14px !important;
@@ -2223,7 +2487,7 @@ select.select{
 
 @media (max-width: 900px){
   .opt{
-    font-size: 13.5px;
+    font-size: 13px;
     border-radius: 13px !important;
   }
 }
@@ -2351,6 +2615,43 @@ select.select{
   </div>
 </div>
 
+<!-- GAME OVER (fullscreen) -->
+<div class="goOverlay" id="goOverlay" aria-hidden="true">
+  <section class="goShell" role="dialog" aria-modal="true" aria-label="Game Over">
+    <div class="goHead">
+      <div class="goBadge"><span class="goBadgeDot" aria-hidden="true"></span>Fin de partida</div>
+      <button class="btn goClose" id="btnGoClose" aria-label="Cerrar">×</button>
+    </div>
+    <div class="goBody">
+      <h2 class="goTitle">Game Over</h2>
+      <p class="goSubtitle">Partida finalizada. Enfoca la revisión en los modelos que has fallado y vuelve a intentarlo.</p>
+
+      <div class="goStats">
+        <div class="goStat"><div class="k">Puntos</div><div class="v" id="goScore">0</div></div>
+      </div>
+
+      <div class="goActions">
+        <button class="btn btnSmall" id="btnPlayAgain">Jugar otra vez</button>
+        <button class="btn btnSmall" id="btnCopyResult">Copiar resultado</button>
+      </div>
+
+      <div class="goReviewTitle">Revisa estos modelos para mejorar la próxima vez.</div>
+      <div class="goFailedGrid" id="goFailedGrid"></div>
+
+      <div class="goCopyHint" id="goCopyHint"></div>
+      <div class="goFine">Tip: lee las fichas de los modelos para mejorar tus puntuaciones.</div>
+    </div>
+  </section>
+</div>
+
+<!-- MODELO FALLADO (fullscreen desde Game Over) -->
+<div class="goModelOverlay" id="goModelOverlay" aria-hidden="true">
+  <div class="goModelSheet" role="dialog" aria-modal="true" aria-label="Ficha del modelo">
+    <button class="btn goModelClose" id="btnGoModelClose" aria-label="Cerrar">×</button>
+    <iframe id="goModelFrame" class="goModelFrame" title="Ficha modelo fallado" loading="eager" referrerpolicy="no-referrer"></iframe>
+  </div>
+</div>
+
   <script>
       
   /* =========================
@@ -2421,6 +2722,14 @@ const fsBody    = $("#fsBody");
 const btnCloseFs = $("#btnCloseFs");
 const btnNextFs  = $("#btnNextFs");
 const elSchoolFilter = $("#schoolFilter");
+const goOverlay = $("#goOverlay");
+const btnGoClose = $("#btnGoClose");
+const elGoScore = $("#goScore");
+const elGoFailedGrid = $("#goFailedGrid");
+const goModelOverlay = $("#goModelOverlay");
+const btnGoModelClose = $("#btnGoModelClose");
+const elGoModelFrame = $("#goModelFrame");
+const elGoCopyHint = $("#goCopyHint");
 
 
 
@@ -2438,6 +2747,8 @@ let bestStreak = 0;
 let bestScore = Number(localStorage.getItem("tmps_bestScore") || 0);
 let bestStreakEver = Number(localStorage.getItem("tmps_bestStreak") || 0);
 
+let FAILED_MODELS = [];
+let livesAnimTimer = null;
 
   /** pool de modelos (filtrado): [{id,label,grupo,year,autores,file,url}] */
   let MODELS = [];
@@ -2947,6 +3258,81 @@ function closeFsPanel(){
   if(fsBody) fsBody.innerHTML = "";
 }
 
+function openGameOverOverlay(){
+  if(!goOverlay) return;
+  goOverlay.classList.add("is-on");
+  goOverlay.setAttribute("aria-hidden", "false");
+  document.body.classList.add("gameover-on");
+}
+
+function closeGameOverOverlay(){
+  if(!goOverlay) return;
+  goOverlay.classList.remove("is-on");
+  goOverlay.setAttribute("aria-hidden", "true");
+  document.body.classList.remove("gameover-on");
+  if(elGoCopyHint) elGoCopyHint.textContent = "";
+  closeGoModelOverlay();
+}
+
+function openGoModelOverlay(url){
+  if(!goModelOverlay || !elGoModelFrame || !url) return;
+  elGoModelFrame.src = url;
+  goModelOverlay.classList.add("is-on");
+  goModelOverlay.setAttribute("aria-hidden","false");
+}
+
+function closeGoModelOverlay(){
+  if(!goModelOverlay) return;
+  goModelOverlay.classList.remove("is-on");
+  goModelOverlay.setAttribute("aria-hidden","true");
+  if(elGoModelFrame) elGoModelFrame.src = "about:blank";
+}
+
+function addFailedModel(model){
+  if(!model || !model.id) return;
+  if(FAILED_MODELS.some(x => x.id === model.id)) return;
+  FAILED_MODELS.push({
+    id: model.id,
+    label: model.label || model.id,
+    grupo: model.grupo || "",
+    reviewed: false
+  });
+}
+
+function renderFailedModels(){
+  if(!elGoFailedGrid) return;
+
+  if(!FAILED_MODELS.length){
+    elGoFailedGrid.innerHTML = `<div class="goFailedEmpty">No has fallado modelos en esta partida.</div>`;
+    return;
+  }
+
+  elGoFailedGrid.innerHTML = FAILED_MODELS.map(m => `
+    <div class="goFailedCard ${m.reviewed ? 'is-open' : ''}">
+      <div class="goFailedLabel">${escapeHtml(m.label)}</div>
+      <div class="goFailedMeta">${escapeHtml(m.grupo || "")}</div>
+      <div class="goFailedActions">
+        <button class="btn goOpenModelBtn ${m.reviewed ? 'is-open' : ''}" data-open-model-id="${escapeHtml(m.id)}">${m.reviewed ? 'Abierta' : 'Abrir ficha'}</button>
+      </div>
+    </div>
+  `).join("");
+}
+
+function openFailedModelPreview(modelId){
+  if(!modelId) return;
+  const model = (MODELS_ALL || []).find(m => String(m.id) === String(modelId))
+    || (MODELS || []).find(m => String(m.id) === String(modelId));
+  if(!model) return;
+
+  const hit = FAILED_MODELS.find(x => String(x.id) === String(modelId));
+  if(hit && !hit.reviewed){
+    hit.reviewed = true;
+    renderFailedModels();
+  }
+
+  openGoModelOverlay(modelosEmbedUrl(model.id, model.grupo));
+}
+
 function pulseHudValue(el, kind){
   if(!el) return;
   el.classList.remove('hudPulseUp','hudPulseDown');
@@ -2955,20 +3341,47 @@ function pulseHudValue(el, kind){
   setTimeout(()=> el.classList.remove('hudPulseUp','hudPulseDown'), 360);
 }
 
+function animateLivesTransition(prevLives, nextLives){
+  if(!elLives) return;
+
+  if(livesAnimTimer){
+    clearTimeout(livesAnimTimer);
+    livesAnimTimer = null;
+  }
+
+  elLives.textContent = String(prevLives);
+  elLives.classList.remove('hudLifePendingUp','hudLifePendingDown','hudPulseUp','hudPulseDown');
+  void elLives.offsetWidth;
+
+  const dir = (nextLives > prevLives) ? 'up' : 'down';
+  elLives.classList.add(dir === 'up' ? 'hudLifePendingUp' : 'hudLifePendingDown');
+
+  livesAnimTimer = setTimeout(()=>{
+    elLives.classList.remove('hudLifePendingUp','hudLifePendingDown');
+    elLives.textContent = String(nextLives);
+    pulseHudValue(elLives, dir === 'up' ? 'up' : 'down');
+    livesAnimTimer = null;
+  }, 230);
+}
+
 function updateHud(){
   const prevScore = Number(elScore?.textContent ?? score);
   const prevLives = Number(elLives?.textContent ?? lives);
 
   if(elScore) elScore.textContent = score;
   if(elRounds) elRounds.textContent = rounds;
-  if(elLives) elLives.textContent = lives;
   if(elStreak) elStreak.textContent = streak;
+
+  if(elLives){
+    if(Number.isFinite(prevLives) && lives !== prevLives){
+      animateLivesTransition(prevLives, lives);
+    }else if(!Number.isFinite(prevLives)){
+      elLives.textContent = String(lives);
+    }
+  }
 
   if(Number.isFinite(prevScore) && score !== prevScore){
     pulseHudValue(elScore, score > prevScore ? 'up' : 'down');
-  }
-  if(Number.isFinite(prevLives) && lives !== prevLives){
-    pulseHudValue(elLives, lives > prevLives ? 'up' : 'down');
   }
 }
   /* =========================
@@ -3127,6 +3540,8 @@ updateHud();
 
 setStatus(statusHtml(false, "-1 vida"), true, "bad");
 
+const failedModel = MODELS.find(m => m.id === CURRENT.correctId);
+addFailedModel(failedModel);
 
 if(lives <= 0){
   gameOver();
@@ -3158,42 +3573,19 @@ function gameOver(){
   }
 
   elAns.innerHTML = "";
-
-  // headline (más limpio)
-  elIdea.classList.add("is-gameover");
-  elIdea.innerHTML = `
-    <div>Game Over</div>
-    <div class="goSub">
-      Tu récord: <b>${bestScore}</b> · Mejor racha histórica: <b>${bestStreakEver}</b>
-    </div>
-  `;
-
-  // tarjeta de resultado
-  elStatus.classList.add("gameover");
-  setStatus(`
-    <div class="goTop">
-      <div class="goBadge">Fin de partida</div>
-      <div class="goMeta">Vuelve a intentarlo y rompe tu récord</div>
-    </div>
-
-    <div class="goStats">
-      <div class="goStat"><div class="k">Puntos</div><div class="v">${score}</div></div>
-      <div class="goStat"><div class="k">Mejor racha</div><div class="v">${bestStreak}</div></div>
-      <div class="goStat"><div class="k">Récord</div><div class="v">${bestScore}</div></div>
-    </div>
-
-    <div class="goActions">
-      <button class="btn btnSmall" id="btnPlayAgain">Jugar otra vez</button>
-      <button class="btn btnSmall" id="btnCopyResult">Copiar resultado</button>
-    </div>
-
-    <div class="goFine">
-      Tip: Explora los modelos para mejorar tus puntuaciones
-    </div>
-  `, true);
-
   setRevealedPanel(null, false);
   closeFsPanel();
+
+  // limpia estado inline
+  elIdea.classList.remove("is-gameover");
+  setStatus("", false);
+
+  // rellena overlay fullscreen
+  if(elGoScore) elGoScore.textContent = String(score);
+  if(elGoCopyHint) elGoCopyHint.textContent = "";
+  renderFailedModels();
+
+  openGameOverOverlay();
 }
 
 
@@ -3206,12 +3598,14 @@ function resetGame(){
   bestStreak = 0;
 
   updateHud();
+  FAILED_MODELS = [];
 
-  // limpiar estilos game over
+  // limpiar estados de overlays
   elIdea.classList.remove("is-gameover");
-  elStatus.classList.remove("gameover");
-
+  closeGameOverOverlay();
   closeFsPanel();
+  setStatus("", false);
+
   buildQuestion();
 }
 
@@ -3366,23 +3760,32 @@ document.addEventListener("click", (e)=>{
 document.addEventListener("click", async (e)=>{
   const t = e.target;
 
+  const openBtn = t && t.closest ? t.closest("button[data-open-model-id]") : null;
+  if(openBtn){
+    openFailedModelPreview(openBtn.getAttribute("data-open-model-id"));
+    return;
+  }
+
   if(t && t.id === "btnPlayAgain"){
     resetGame();
     return;
   }
 
   if(t && t.id === "btnCopyResult"){
+    const failedTxt = FAILED_MODELS.length
+      ? FAILED_MODELS.map(m => `- ${m.label} (${m.grupo || ""})`).join("\n")
+      : "- Ninguno";
+
     const text =
       `TMPS Quiz — Resultado\n` +
-      `Puntos: ${score}\n` +
-      `Mejor racha (partida): ${bestStreak}\n` +
-      `Récord: ${bestScore}`;
+      `Puntos: ${score}\n\n` +
+      `Modelos a revisar:\n${failedTxt}`;
 
     try{
       await navigator.clipboard.writeText(text);
-      setStatus(elStatus.innerHTML + `<div class="goFine">✅ Copiado al portapapeles</div>`, true);
+      if(elGoCopyHint) elGoCopyHint.textContent = "Copiado al portapapeles";
     }catch(err){
-      setStatus(elStatus.innerHTML + `<div class="goFine">⚠️ No he podido copiar (permiso del navegador)</div>`, true);
+      if(elGoCopyHint) elGoCopyHint.textContent = "No he podido copiar (permiso del navegador)";
     }
   }
 });
@@ -3420,6 +3823,38 @@ btnCloseFs.addEventListener("click", ()=>{
 
 fsOverlay.addEventListener("click", (e)=>{
   if(e.target === fsOverlay) closeFsPanel();
+});
+
+if(btnGoClose){
+  btnGoClose.addEventListener("click", ()=> resetGame());
+}
+
+if(btnGoModelClose){
+  btnGoModelClose.addEventListener("click", ()=> closeGoModelOverlay());
+}
+
+if(goModelOverlay){
+  goModelOverlay.addEventListener("click", (e)=>{
+    if(e.target === goModelOverlay) closeGoModelOverlay();
+  });
+}
+
+if(goOverlay){
+  goOverlay.addEventListener("click", (e)=>{
+    if(e.target === goOverlay) closeGameOverOverlay();
+  });
+}
+
+window.addEventListener("keydown", (e)=>{
+  if(e.key === "Escape"){
+    if(goModelOverlay && goModelOverlay.classList.contains("is-on")){
+      closeGoModelOverlay();
+    }else if(goOverlay && goOverlay.classList.contains("is-on")){
+      resetGame();
+    }else if(fsOverlay && fsOverlay.classList.contains("is-on")){
+      closeFsPanel();
+    }
+  }
 });
 
 // ✅ cambio de escuela

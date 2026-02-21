@@ -2085,18 +2085,40 @@ function modelUrlCandidates(file){
   const f = String(file || "").replace(/^\/+/, "");
   if(!f) return [];
 
-  const files = [f];
+  const files = [];
+  const add = (x) => { if(x && !files.includes(x)) files.push(x); };
+
+  // 1) Prioriza carpeta con inicial mayúscula (evita 404 por case-sensitive)
   if (f.toLowerCase().startsWith("modelos/")){
     const parts = f.split("/");
     if (parts[1]){
       const fixedFolder = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
-      const alt = ["modelos", fixedFolder, ...parts.slice(2)].join("/");
-      if (!files.includes(alt)) files.push(alt);
+      add(["modelos", fixedFolder, ...parts.slice(2)].join("/"));
     }
+  }
+
+  // 2) Ruta original
+  add(f);
+
+  // 3) Variante sin año final: ...-2000.json -> ... .json
+  const yearSuffix = f.match(/^(.*)-\d{4}\.json$/i);
+  if (yearSuffix && yearSuffix[1]){
+    const noYear = `${yearSuffix[1]}.json`;
+
+    if (noYear.toLowerCase().startsWith("modelos/")){
+      const parts2 = noYear.split("/");
+      if (parts2[1]){
+        const fixedFolder2 = parts2[1].charAt(0).toUpperCase() + parts2[1].slice(1);
+        add(["modelos", fixedFolder2, ...parts2.slice(2)].join("/"));
+      }
+    }
+
+    add(noYear);
   }
 
   return files.map(ff => gh(`Core/${ff}`));
 }
+
 
 async function fetchModelJsonResolved(model){
   const urls = (Array.isArray(model?.urls) && model.urls.length)

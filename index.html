@@ -1853,7 +1853,10 @@ const FOTOS_JSON_URL  = gh('Core/fotos/foto.json');
 const PHOTOS_BASE_URL = gh('Core/fotos/');
 
 // ✅ URL BASE de la app de MODELOS (para iframe)
-const MODELOS_APP_BASE = "https://modelos.tumentorpsicologia.com/apps/modelos/index.html";
+const REMOTE_MODELOS_APP_BASE = "https://modelos.tumentorpsicologia.com/apps/modelos/index.html";
+const LOCAL_MODELOS_APP_BASE  = new URL("../Modelos/index.html", location.href).href;
+const MODELOS_APP_BASE = (new URLSearchParams(location.search).get("modelosBase") ||
+  (location.protocol === "file:" ? LOCAL_MODELOS_APP_BASE : REMOTE_MODELOS_APP_BASE));
 
 function modelosEmbedUrl(modelId, school){
   // cache-buster para forzar que el iframe abra el modelo correcto siempre
@@ -1984,6 +1987,23 @@ let DESC_BY_MODEL = {};
     return a;
   }
 
+  async function mapLimit(arr, limit, mapper){
+    const out = new Array(arr.length);
+    let i = 0;
+
+    async function worker(){
+      while(true){
+        const idx = i++;
+        if(idx >= arr.length) return;
+        out[idx] = await mapper(arr[idx], idx);
+      }
+    }
+
+    const n = Math.max(1, Math.min(limit, arr.length));
+    await Promise.all(Array.from({length:n}, ()=>worker()));
+    return out;
+  }
+
   function setSchoolColor(grupo){
     // Si luego quieres: tu mapa real de colores por escuela
 const map = {
@@ -2032,22 +2052,72 @@ function setRandomDotColor(){
   }
 
 
-async function fetchJson(url){
-  // cache-buster suave para evitar respuestas raras cacheadas en algunos entornos
-  const u = url + (url.includes("?") ? "&" : "?") + "t=" + Date.now();
+async function fetchJson(url, opts = {}){
+  const bust = !!opts.bust;
+  const u = bust ? (url + (url.includes("?") ? "&" : "?") + "t=" + Date.now()) : url;
 
-  const r = await fetch(u, { cache: "no-store" });
-  if(!r.ok) throw new Error(`HTTP ${r.status} al cargar: ${url}`);
+  const ctrl = new AbortController();
+  const to = setTimeout(() => ctrl.abort(), Number(opts.timeoutMs || 20000));
 
-  const ct = (r.headers.get("content-type") || "").toLowerCase();
-  if(!ct.includes("application/json")){
-    const preview = (await r.text()).slice(0, 180);
-    throw new Error(`Respuesta no JSON (${ct || "sin content-type"}) en: ${url} · ${preview}`);
+  try{
+    const r = await fetch(u, {
+      cache: bust ? "no-store" : "force-cache",
+      signal: ctrl.signal,
+      headers: { "Accept": "application/json" }
+    });
+
+    if(!r.ok) throw new Error(`HTTP ${r.status} al cargar: ${url}`);
+
+    const txt = await r.text();
+    try{
+      return JSON.parse(txt);
+    }catch(e){
+      const ct = (r.headers.get("content-type") || "").toLowerCase();
+      const preview = txt.slice(0, 180);
+      throw new Error(`Respuesta no JSON (${ct || "sin content-type"}) en: ${url} · ${preview}`);
+    }
+  } finally {
+    clearTimeout(to);
   }
-
-  return await r.json();
 }
 
+function modelUrlCandidates(file){
+  const f = String(file || "").replace(/^\/+/, "");
+  if(!f) return [];
+
+  const files = [f];
+  if (f.toLowerCase().startsWith("modelos/")){
+    const parts = f.split("/");
+    if (parts[1]){
+      const fixedFolder = parts[1].charAt(0).toUpperCase() + parts[1].slice(1);
+      const alt = ["modelos", fixedFolder, ...parts.slice(2)].join("/");
+      if (!files.includes(alt)) files.push(alt);
+    }
+  }
+
+  return files.map(ff => gh(`Core/${ff}`));
+}
+
+async function fetchModelJsonResolved(model){
+  const urls = (Array.isArray(model?.urls) && model.urls.length)
+    ? model.urls
+    : [model?.url].filter(Boolean);
+
+  let lastErr = null;
+  for (const u of urls){
+    try{
+      const json = await fetchJson(u);
+      if(json){
+        model.url = u;
+        return json;
+      }
+    }catch(e){
+      lastErr = e;
+    }
+  }
+
+  throw (lastErr || new Error(`No se pudo cargar modelo ${model?.id || ""}`));
+}
 
 function extractIdeasFromModel(modelJson){
   const ideas = modelJson?.ideasPrincipales;
@@ -2115,6 +2185,39 @@ function extractMicrosFromModel(modelJson){
   }).filter(Boolean);
 }
 
+function ingestModelContent(model, modelJson, targetItems){
+  if(!model || !modelJson || !targetItems) return;
+
+  if(typeof modelJson.descripcion === "string"){
+    const d = modelJson.descripcion.trim();
+    if(d) DESC_BY_MODEL[model.id] = d;
+  }
+
+  const ideas = extractIdeasFromModel(modelJson);
+  const procs = extractProcedimientosFromModel(modelJson);
+  const micros = extractMicrosFromModel(modelJson);
+
+  const pushItems = (kind, arr) => {
+    for(const t of (arr || [])){
+      const clean = String(t).trim();
+      if(clean.length < 8) continue;
+
+      targetItems.push({
+        kind,
+        modelId: model.id,
+        modelLabel: model.label,
+        grupo: model.grupo,
+        year: model.year,
+        autores: model.autores,
+        text: clean
+      });
+    }
+  };
+
+  pushItems("idea", ideas);
+  pushItems("procedimiento", procs);
+  pushItems("micro", micros);
+}
 
 function fadeInIframe(iframe, loadingHostEl){
   if(!iframe || !loadingHostEl) return;
@@ -2563,7 +2666,7 @@ function resetGame(){
   async function init(){
     try{
       elIdea.textContent = "Cargando modelos…";
-setStatus(`Origen: <b>${location.origin}</b> · Href: <b>${location.href}</b>`, true);
+setStatus(`Origen: <b>${escapeHtml(location.origin)}</b> · Href: <b>${escapeHtml(location.href)}</b>`, true);
 
 
      const [escuelasIndex, fotosJson] = await Promise.all([
@@ -2577,11 +2680,14 @@ PHOTO_BY_MODEL = normalizePhotosJson(fotosJson);
 const schools = Array.isArray(escuelasIndex) ? escuelasIndex : (escuelasIndex.escuelas || []);
 
 // 2) cargar cada escuela (Core/{entry.file}) y acumular school.modelos[]
-const schoolJsons = await Promise.allSettled(
-  schools
-    .filter(s => s && s.file)
-    .map(s => fetchJson(gh(`Core/${String(s.file).replace(/^\/+/,"")}`)))
-);
+const schoolEntries = schools.filter(s => s && s.file);
+const schoolJsons = await mapLimit(schoolEntries, 6, async (s) => {
+  try{
+    return { status: "fulfilled", value: await fetchJson(gh(`Core/${String(s.file).replace(/^\/+/,"")}`)) };
+  }catch(reason){
+    return { status: "rejected", reason };
+  }
+});
 
 const summaries = [];
 for (const res of schoolJsons){
@@ -2602,57 +2708,14 @@ for (const res of schoolJsons){
 }
 
 // 3) MODELS = lista final con url real al JSON del modelo
-MODELS = summaries.map(m => ({
-  ...m,
-  url: gh(`Core/${String(m.file).replace(/^\/+/,"")}`)
-}));
-
-      // ahora cargamos JSON de modelos para extraer ideas
-      elIdea.textContent = `Cargando ideas… (${MODELS.length} modelos)`;
-
-      const modelJsons = await Promise.allSettled(
-        MODELS.map(m => fetchJson(m.url))
-      );
-
-     ITEMS = [];
-
-for(let i=0;i<modelJsons.length;i++){
-  const res = modelJsons[i];
-  if(res.status !== "fulfilled") continue;
-
-  const m = MODELS[i];
-  const mj = res.value;
-if(mj && typeof mj.descripcion === "string"){
-  DESC_BY_MODEL[m.id] = mj.descripcion.trim();
-}
-
-  const ideas = extractIdeasFromModel(mj);
-  const procs = extractProcedimientosFromModel(mj);
-  const micros = extractMicrosFromModel(mj);
-
-  // helper para meter items
-  const pushItems = (kind, arr) => {
-    for(const t of (arr || [])){
-      const clean = String(t).trim();
-      if(clean.length < 8) continue;
-
-      ITEMS.push({
-        kind,
-        modelId: m.id,
-        modelLabel: m.label,
-        grupo: m.grupo,
-        year: m.year,
-        autores: m.autores,
-        text: clean
-      });
-    }
+MODELS = summaries.map(m => {
+  const urls = modelUrlCandidates(m.file);
+  return {
+    ...m,
+    urls,
+    url: urls[0] || gh(`Core/${String(m.file).replace(/^\/+/,"")}`)
   };
-
-  pushItems("idea", ideas);
-  pushItems("procedimiento", procs);
-  pushItems("micro", micros);
-}
-
+});
 
       if(!MODELS.length){
         elIdea.textContent = "No he podido construir la lista de modelos desde el index.";
@@ -2660,20 +2723,73 @@ if(mj && typeof mj.descripcion === "string"){
         return;
       }
 
-  if(!ITEMS.length){
-  elIdea.textContent = "No he encontrado ideas/procedimientos/micros en los JSON cargados.";
-  setStatus("Verifica que tus modelos tengan <b>ideasPrincipales</b>, <b>procedimientos</b> o <b>micros</b>.", true);
-  return;
-}
+      // Carga progresiva: lote inicial rápido + resto en segundo plano
+      const seedCount = Math.min(MODELS.length, isMobile() ? 18 : 36);
+      const seedModels = MODELS.slice(0, seedCount);
+      const tailModels = MODELS.slice(seedCount);
 
-      // ✅ guardar pools completos
+      elIdea.textContent = `Cargando ideas… (${seedModels.length}/${MODELS.length})`;
+
+      ITEMS = [];
+      const seedJsons = await mapLimit(seedModels, 10, async (m) => {
+        try{
+          return { status: "fulfilled", value: await fetchModelJsonResolved(m) };
+        }catch(reason){
+          return { status: "rejected", reason };
+        }
+      });
+
+      for(let i=0;i<seedJsons.length;i++){
+        const res = seedJsons[i];
+        if(res.status !== "fulfilled") continue;
+        ingestModelContent(seedModels[i], res.value, ITEMS);
+      }
+
+      if(!ITEMS.length){
+        elIdea.textContent = "No he encontrado ideas/procedimientos/micros en los modelos cargados.";
+        setStatus("Verifica que tus modelos tengan <b>ideasPrincipales</b>, <b>procedimientos</b> o <b>micros</b>.", true);
+        return;
+      }
+
+      // ✅ pools iniciales (ya jugables)
       MODELS_ALL = MODELS.slice();
       ITEMS_ALL  = ITEMS.slice();
 
-      // ✅ poblar selector y aplicar filtro inicial
       populateSchoolFilter();
       CURRENT_SCHOOL = (elSchoolFilter?.value || "todas");
       applySchoolFilter();
+
+      // Completa la base en background sin bloquear UI
+      if(tailModels.length){
+        (async () => {
+          const tailJsons = await mapLimit(tailModels, 8, async (m) => {
+            try{
+              return { status: "fulfilled", value: await fetchModelJsonResolved(m) };
+            }catch(reason){
+              return { status: "rejected", reason };
+            }
+          });
+
+          const extraItems = [];
+          for(let i=0;i<tailJsons.length;i++){
+            const res = tailJsons[i];
+            if(res.status !== "fulfilled") continue;
+            ingestModelContent(tailModels[i], res.value, extraItems);
+          }
+
+          if(extraItems.length){
+            ITEMS_ALL = ITEMS_ALL.concat(extraItems);
+
+            // Si aún no hay pregunta visible (o no hay opciones), refresca una vez
+            const hasOptions = !!(elAns && elAns.querySelector("button.opt"));
+            if(!hasOptions){
+              applySchoolFilter();
+            }
+          }
+        })().catch((e)=>{
+          console.warn("Carga de fondo incompleta:", e);
+        });
+      }
 
     }catch(err){
       console.error(err);
